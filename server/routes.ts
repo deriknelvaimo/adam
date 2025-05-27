@@ -74,12 +74,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload and analyze genetic data
   app.post("/api/genetic-analysis", upload.single('geneticFile'), async (req, res) => {
     try {
+      console.log('🧬 File upload received:', req.file?.originalname);
+      
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
       // Parse the genetic file
       const geneticData = parseGeneticFile(req.file.buffer, req.file.originalname);
+      console.log('📊 Parsed genetic markers:', geneticData.markers.length);
       
       if (!geneticData.markers || geneticData.markers.length === 0) {
         return res.status(400).json({ message: "No valid genetic markers found in file" });
@@ -87,8 +90,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Analyze each marker using AI-powered genetic analysis
       const analyzedMarkers = [];
+      console.log('🤖 Starting genetic analysis with local model...');
+      
       for (const marker of geneticData.markers) {
         try {
+          console.log(`🧬 Analyzing: ${marker.gene} ${marker.variant}`);
           const aiAnalysis = await analyzeGeneticMarker({
             gene: marker.gene,
             variant: marker.variant,
@@ -96,6 +102,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             chromosome: marker.chromosome,
             position: marker.position
           });
+          console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
           
           analyzedMarkers.push({
             ...marker,
