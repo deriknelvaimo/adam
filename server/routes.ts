@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Response as ExpressResponse } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import multer from "multer";
@@ -12,6 +12,9 @@ import {
 } from "@shared/schema";
 import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion, type GeneticAnalysisRequest } from "./genetic-ai";
 import { localLLM } from "./local-llm";
+
+// Store active SSE connections for progress updates
+const progressConnections = new Map<string, ExpressResponse>();
 
 // Configure multer for file uploads
 const upload = multer({
@@ -71,7 +74,40 @@ function parseGeneticFile(buffer: Buffer, filename: string): GeneticFileData {
   }
 }
 
+// Helper function to send SSE message
+function sendProgressUpdate(analysisId: string, data: any) {
+  const connection = progressConnections.get(analysisId);
+  if (connection) {
+    connection.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+
+  // SSE endpoint for progress updates
+  app.get('/api/progress/:analysisId', (req, res) => {
+    const analysisId = req.params.analysisId;
+    
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
+    });
+
+    // Store this connection
+    progressConnections.set(analysisId, res);
+
+    // Remove connection when client disconnects
+    req.on('close', () => {
+      progressConnections.delete(analysisId);
+    });
+
+    // Send initial connection confirmation
+    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Progress tracking started' })}\n\n`);
+  });
+
   // Upload and analyze genetic data
   app.post("/api/genetic-analysis", upload.single('geneticFile'), async (req, res) => {
     try {
@@ -89,12 +125,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No valid genetic markers found in file" });
       }
 
+      // Generate unique analysis ID for progress tracking
+      const analysisId = Date.now().toString();
+      
       // Analyze each marker using AI-powered genetic analysis
       const analyzedMarkers = [];
       const totalMarkersCount = geneticData.markers.length;
       console.log('🤖 Starting genetic analysis with local model...');
       
-      // WebSocket removed to avoid conflicts
+      // Send analysis started event
+      sendProgressUpdate(analysisId, {
+        type: 'analysis_started',
+        total: totalMarkersCount,
+        message: `Starting analysis of ${totalMarkersCount} genetic markers`
+      });
       
       for (let i = 0; i < geneticData.markers.length; i++) {
         const marker = geneticData.markers[i];
