@@ -12,9 +12,7 @@ import {
 } from "@shared/schema";
 import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion, type GeneticAnalysisRequest } from "./genetic-ai";
 import { localLLM } from "./local-llm";
-
-// Store active SSE connections for progress updates
-const progressConnections = new Map<string, ExpressResponse>();
+import { sendProgressUpdate, setupProgressSSE, cleanupProgressConnection } from "./progress-sse";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -74,39 +72,9 @@ function parseGeneticFile(buffer: Buffer, filename: string): GeneticFileData {
   }
 }
 
-// Helper function to send SSE message
-function sendProgressUpdate(analysisId: string, data: any) {
-  const connection = progressConnections.get(analysisId);
-  if (connection) {
-    connection.write(`data: ${JSON.stringify(data)}\n\n`);
-  }
-}
-
 export async function registerRoutes(app: Express): Promise<Server> {
-
-  // SSE endpoint for progress updates
-  app.get('/api/progress/:analysisId', (req, res) => {
-    const analysisId = req.params.analysisId;
-    
-    res.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    });
-
-    // Store this connection
-    progressConnections.set(analysisId, res);
-
-    // Remove connection when client disconnects
-    req.on('close', () => {
-      progressConnections.delete(analysisId);
-    });
-
-    // Send initial connection confirmation
-    res.write(`data: ${JSON.stringify({ type: 'connected', message: 'Progress tracking started' })}\n\n`);
-  });
+  // Setup SSE endpoint for progress updates
+  setupProgressSSE(app);
 
   // Upload and analyze genetic data
   app.post("/api/genetic-analysis", upload.single('geneticFile'), async (req, res) => {
@@ -145,6 +113,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           console.log(`🧬 Analyzing: ${marker.gene} ${marker.variant}`);
           
+          // Send progress update
+          sendProgressUpdate(analysisId, {
+            type: 'marker_progress',
+            current: i + 1,
+            total: totalMarkersCount,
+            gene: marker.gene,
+            message: `Analyzing ${marker.gene}...`
+          });
+          
           const aiAnalysis = await analyzeGeneticMarker({
             gene: marker.gene,
             variant: marker.variant,
@@ -153,6 +130,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
             position: marker.position
           });
           console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
+          
+          // Send completion update for this marker
+          sendProgressUpdate(analysisId, {
+            type: 'marker_complete',
+            current: i + 1,
+            total: totalMarkersCount,
+            gene: marker.gene,
+            impact: aiAnalysis.impact,
+            message: `${marker.gene}: ${aiAnalysis.impact} impact`
+          });
           
           analyzedMarkers.push({
             ...marker,
