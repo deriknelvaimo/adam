@@ -45,7 +45,7 @@ export default function RiskAssessment({ riskAssessments }: RiskAssessmentProps)
         return (
           <Card key={assessment.id} className="border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="font-medium text-gray-900">{assessment.category || assessment.condition}</h4>
+              <h4 className="font-medium text-gray-900">{assessment.category}</h4>
               <Badge className={getRiskColor(assessment.riskLevel)}>
                 {assessment.riskLevel}
               </Badge>

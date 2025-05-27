@@ -92,10 +92,11 @@ export const insertGeneticMarkerSchema = createInsertSchema(geneticMarkers).pick
 
 export const insertRiskAssessmentSchema = createInsertSchema(riskAssessments).pick({
   analysisId: true,
-  condition: true,
+  category: true,
+  subcategory: true,
   riskLevel: true,
-  percentage: true,
   description: true,
+  recommendation: true,
 });
 
 export const insertChatMessageSchema = createInsertSchema(chatMessages).pick({
