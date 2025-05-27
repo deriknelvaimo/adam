@@ -7,14 +7,21 @@ import { ArrowLeft, Download, User } from "lucide-react";
 import AnalysisResults from "@/components/analysis-results";
 import InteractiveChat from "@/components/interactive-chat";
 import DataVisualization from "@/components/data-visualization";
+import { GeneticAnalysis, GeneticMarker, RiskAssessment } from "@shared/schema";
+
+interface AnalysisDetailsResponse {
+  analysis: GeneticAnalysis;
+  markers: GeneticMarker[];
+  riskAssessments: RiskAssessment[];
+}
 
 export default function AnalysisDetails() {
   const [location] = useLocation();
   const params = useParams();
   const analysisId = parseInt(params.id || '0');
 
-  const { data: analysisData, isLoading, error } = useQuery({
-    queryKey: ['/api/analysis', analysisId],
+  const { data: analysisData, isLoading, error } = useQuery<AnalysisDetailsResponse>({
+    queryKey: [`/api/analysis/${analysisId}`],
     enabled: !isNaN(analysisId) && analysisId > 0,
   });
 
