@@ -1,253 +1,190 @@
-import type { Express } from "express";
-import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { Express, Request, Response } from "express";
+import { createServer, Server } from "http";
 import multer from "multer";
-import { z } from "zod";
-import { 
-  insertGeneticAnalysisSchema,
-  insertGeneticMarkerSchema,
-  insertRiskAssessmentSchema,
-  insertChatMessageSchema,
-  type GeneticFileData
-} from "@shared/schema";
-import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion, type GeneticAnalysisRequest } from "./genetic-ai";
-import { localLLM } from "./local-llm";
+import { storage } from "./storage";
+import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion } from "./genetic-ai";
 import { sendProgressUpdate, setupProgressSSE, cleanupProgressConnection } from "./progress-sse";
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-});
+const upload = multer({ storage: multer.memoryStorage() });
+
+interface GeneticFileData {
+  markers: Array<{
+    gene: string;
+    variant: string;
+    genotype: string;
+    chromosome?: string;
+    position?: number;
+  }>;
+}
 
 function parseGeneticFile(buffer: Buffer, filename: string): GeneticFileData {
   const content = buffer.toString('utf-8');
+  const lines = content.split('\n').filter(line => line.trim());
   
-  if (filename.endsWith('.csv')) {
-    const lines = content.split('\n').filter(line => line.trim());
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    
-    const markers = lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim());
+  if (lines.length < 2) {
+    throw new Error('File must contain at least a header and one data row');
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim());
+  const markers: GeneticFileData['markers'] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim());
+    if (values.length >= headers.length) {
       const marker: any = {};
-      
       headers.forEach((header, index) => {
         marker[header] = values[index];
       });
-      
-      return {
-        gene: marker.gene || marker.genename || '',
-        variant: marker.variant || marker.rsid || marker.snp || '',
-        genotype: marker.genotype || marker.alleles || '',
-        chromosome: marker.chromosome || marker.chr || undefined,
-        position: marker.position ? parseInt(marker.position) : undefined
-      };
-    }).filter(marker => marker.gene && marker.variant && marker.genotype);
-    
-    return { markers };
-  } else if (filename.endsWith('.json')) {
-    const data = JSON.parse(content);
-    const markers = (data.markers || data).map((marker: any) => {
-      return {
-        gene: marker.gene || marker.genename || '',
-        variant: marker.variant || marker.rsid || marker.snp || '',
-        genotype: marker.genotype || marker.alleles || '',
-        chromosome: marker.chromosome || marker.chr || undefined,
-        position: marker.position ? parseInt(marker.position) : undefined
-      };
-    }).filter(marker => marker.gene && marker.variant && marker.genotype);
-    
-    return { markers };
-  } else {
-    throw new Error('Unsupported file format. Please upload CSV or JSON files.');
+
+      if (marker.gene && marker.variant && marker.genotype) {
+        markers.push({
+          gene: marker.gene,
+          variant: marker.variant,
+          genotype: marker.genotype,
+          chromosome: marker.chromosome || null,
+          position: marker.position ? parseInt(marker.position) : null
+        });
+      }
+    }
   }
+
+  if (markers.length === 0) {
+    throw new Error('No valid genetic markers found in file');
+  }
+
+  return { markers };
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup SSE endpoint for progress updates
+  const server = createServer(app);
   setupProgressSSE(app);
 
   // Upload and analyze genetic data
-  app.post("/api/genetic-analysis", upload.single('geneticFile'), async (req, res) => {
+  app.post("/api/upload-genetic-data", upload.single('file'), async (req: Request, res: Response) => {
     try {
-      console.log('🧬 File upload received:', req.file?.originalname);
-      
       if (!req.file) {
         return res.status(400).json({ message: "No file uploaded" });
       }
 
-      // Parse the genetic file
-      const geneticData = parseGeneticFile(req.file.buffer, req.file.originalname);
-      console.log('📊 Parsed genetic markers:', geneticData.markers.length);
-      
-      if (!geneticData.markers || geneticData.markers.length === 0) {
-        return res.status(400).json({ message: "No valid genetic markers found in file" });
-      }
-
-      // Generate unique analysis ID for progress tracking
       const analysisId = Date.now().toString();
+      const fileData = parseGeneticFile(req.file.buffer, req.file.originalname || 'unknown');
       
-      // Analyze each marker using AI-powered genetic analysis
-      const analyzedMarkers = [];
-      const totalMarkersCount = geneticData.markers.length;
-      console.log('🤖 Starting genetic analysis with local model...');
-      
-      // Send analysis started event
       sendProgressUpdate(analysisId, {
         type: 'analysis_started',
-        total: totalMarkersCount,
-        message: `Starting analysis of ${totalMarkersCount} genetic markers`
+        message: `File uploaded: ${req.file.originalname}. Found ${fileData.markers.length} genetic markers. Starting analysis...`,
+        total: fileData.markers.length
       });
-      
-      // Process markers concurrently in batches for better performance
-      const BATCH_SIZE = 3; // Process 3 markers simultaneously
-      const batches = [];
-      
-      for (let i = 0; i < geneticData.markers.length; i += BATCH_SIZE) {
-        batches.push(geneticData.markers.slice(i, i + BATCH_SIZE));
-      }
 
-      let processedCount = 0;
+      const analysis = await storage.createGeneticAnalysis({
+        fileName: req.file.originalname || 'unknown',
+        fileSize: req.file.size,
+        fileType: req.file.mimetype || 'text/csv',
+        totalMarkers: fileData.markers.length,
+        analyzedVariants: "0",
+        riskFactors: 0
+      });
+
+      const batchSize = 3;
+      const analyzedMarkers: any[] = [];
       
-      for (const batch of batches) {
-        // Process batch concurrently
+      for (let i = 0; i < fileData.markers.length; i += batchSize) {
+        const batch = fileData.markers.slice(i, i + batchSize);
         const batchPromises = batch.map(async (marker, batchIndex) => {
-          const globalIndex = processedCount + batchIndex;
+          const globalIndex = i + batchIndex;
+          
           try {
-            console.log(`🧬 Analyzing (batch): ${marker.gene} ${marker.variant}`);
-            
-            // Send progress update
             sendProgressUpdate(analysisId, {
               type: 'marker_progress',
               current: globalIndex + 1,
-              total: totalMarkersCount,
+              total: fileData.markers.length,
               gene: marker.gene,
-              message: `Analyzing ${marker.gene}...`
+              variant: marker.variant,
+              message: `Analyzing ${marker.gene} (${marker.variant})...`
             });
-            
-            const aiAnalysis = await analyzeGeneticMarker({
+
+            const result = await analyzeGeneticMarker({
               gene: marker.gene,
               variant: marker.variant,
               genotype: marker.genotype,
               chromosome: marker.chromosome,
               position: marker.position
             });
-            console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
-            
-            // Send completion update for this marker
+
+            const savedMarker = await storage.createGeneticMarker({
+              analysisId: analysis.id,
+              gene: result.gene,
+              variant: result.variant,
+              genotype: result.genotype,
+              impact: result.impact,
+              clinicalSignificance: result.clinicalSignificance,
+              chromosome: marker.chromosome,
+              position: marker.position,
+              riskScore: result.riskScore,
+              healthCategory: result.healthCategory,
+              subcategory: result.subcategory,
+              explanation: result.explanation,
+              recommendations: result.recommendations.join('; ')
+            });
+
             sendProgressUpdate(analysisId, {
               type: 'marker_complete',
               current: globalIndex + 1,
-              total: totalMarkersCount,
+              total: fileData.markers.length,
               gene: marker.gene,
-              impact: aiAnalysis.impact,
-              message: `${marker.gene}: ${aiAnalysis.impact} impact`
+              variant: marker.variant,
+              impact: result.impact,
+              message: `Completed analysis of ${marker.gene}: ${result.impact} impact`
             });
-            
-            return {
-              ...marker,
-              impact: aiAnalysis.impact,
-              clinicalSignificance: aiAnalysis.clinicalSignificance,
-              riskScore: aiAnalysis.riskScore,
-              healthCategory: aiAnalysis.healthCategory,
-              subcategory: aiAnalysis.subcategory,
-              explanation: aiAnalysis.explanation,
-              recommendations: aiAnalysis.recommendations
-            };
+
+            return savedMarker;
           } catch (error) {
             console.error(`Error analyzing marker ${marker.gene}:`, error);
-            return null;
+            
+            const fallbackMarker = await storage.createGeneticMarker({
+              analysisId: analysis.id,
+              gene: marker.gene,
+              variant: marker.variant,
+              genotype: marker.genotype,
+              impact: "Pending Local Analysis",
+              clinicalSignificance: "Analysis in progress",
+              chromosome: marker.chromosome,
+              position: marker.position,
+              riskScore: null,
+              healthCategory: null,
+              subcategory: null,
+              explanation: "Local AI model is processing this variant",
+              recommendations: "Analysis pending"
+            });
+
+            return fallbackMarker;
           }
         });
 
-        // Wait for current batch to complete
         const batchResults = await Promise.all(batchPromises);
-        
-        // Add successful results to analyzed markers
-        batchResults.forEach(result => {
-          if (result) {
-            analyzedMarkers.push(result);
-          }
-        });
-        
-        processedCount += batch.length;
-        console.log(`🚀 Completed batch: ${processedCount}/${totalMarkersCount} markers processed`);
+        analyzedMarkers.push(...batchResults);
       }
 
-      // Send analysis complete event
+      const riskAssessments = await generateRiskAssessments(analyzedMarkers);
+      for (const assessment of riskAssessments) {
+        await storage.createRiskAssessment({
+          analysisId: analysis.id,
+          condition: assessment.condition,
+          riskLevel: assessment.riskLevel,
+          percentage: assessment.percentage,
+          description: assessment.description
+        });
+      }
+
+      const totalMarkersAnalyzed = analyzedMarkers.length;
+      const analyzedVariants = Math.round((totalMarkersAnalyzed / fileData.markers.length) * 100);
+      const riskFactors = analyzedMarkers.filter(m => m.impact === 'High').length;
+
       sendProgressUpdate(analysisId, {
         type: 'analysis_complete',
-        total: totalMarkersCount,
-        analyzedCount: analyzedMarkers.length,
-        message: `Analysis complete! Processed ${analyzedMarkers.length} markers`
+        totalMarkers: totalMarkersAnalyzed,
+        message: `Analysis complete! Processed ${totalMarkersAnalyzed} genetic markers.`
       });
 
-      // Calculate analysis statistics
-      const totalMarkersAnalyzed = analyzedMarkers.length;
-      const analyzedVariants = Math.round((totalMarkersAnalyzed / geneticData.markers.length) * 100);
-      const highRiskCount = analyzedMarkers.filter(m => m.impact === 'High').length;
-      const moderateRiskCount = analyzedMarkers.filter(m => m.impact === 'Moderate').length;
-      const riskFactors = highRiskCount;
-
-      // Create genetic analysis record
-      const analysisData = {
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        uploadDate: new Date(),
-        totalMarkers: totalMarkersAnalyzed,
-        highRiskMarkers: highRiskCount,
-        moderateRiskMarkers: moderateRiskCount,
-        processedMarkers: analyzedMarkers
-      };
-
-      const analysis = await storage.createGeneticAnalysis({
-        fileName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: req.file.mimetype || 'application/octet-stream',
-        totalMarkers: totalMarkersAnalyzed,
-        analyzedVariants: `${analyzedVariants}%`,
-        riskFactors,
-        analysisData
-      });
-
-      // Store genetic markers with AI analysis results
-      for (const marker of analyzedMarkers) {
-        await storage.createGeneticMarker({
-          analysisId: analysis.id,
-          gene: marker.gene,
-          variant: marker.variant,
-          genotype: marker.genotype,
-          impact: marker.impact,
-          clinicalSignificance: marker.clinicalSignificance,
-          chromosome: marker.chromosome,
-          position: marker.position,
-          riskScore: marker.riskScore,
-          healthCategory: marker.healthCategory,
-          subcategory: marker.subcategory,
-          explanation: marker.explanation,
-          recommendations: marker.recommendations
-        });
-      }
-
-      // Generate AI-powered risk assessments
-      try {
-        const aiRiskAssessments = await generateRiskAssessments(analyzedMarkers);
-        for (const assessment of aiRiskAssessments) {
-          await storage.createRiskAssessment({
-            analysisId: analysis.id,
-            condition: assessment.category,
-            riskLevel: assessment.riskLevel.toString(),
-            percentage: assessment.riskLevel.toString(),
-            description: assessment.description
-          });
-        }
-      } catch (error) {
-        console.error('Error generating risk assessments:', error);
-      }
-
-      // Clean up SSE connection
       cleanupProgressConnection(analysisId);
 
       res.json({
@@ -270,30 +207,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Clear test data endpoint
-  app.post("/api/clear-data", async (req, res) => {
+  // Get analysis history
+  app.get("/api/analysis-history", async (req: Request, res: Response) => {
     try {
-      // For in-memory storage, we can reinitialize
-      if (storage instanceof MemStorage) {
-        // Reset all in-memory data
-        (storage as any).geneticAnalyses = new Map();
-        (storage as any).geneticMarkers = new Map();
-        (storage as any).riskAssessments = new Map();
-        (storage as any).chatMessages = new Map();
-        (storage as any).currentAnalysisId = 1;
-        (storage as any).currentMarkerId = 1;
-        (storage as any).currentRiskId = 1;
-        (storage as any).currentChatId = 1;
-      }
-      res.json({ message: "Data cleared successfully" });
+      const analyses = await storage.getAllGeneticAnalyses();
+      const historyWithSummary = await Promise.all(
+        analyses.map(async (analysis) => {
+          const markers = await storage.getGeneticMarkersByAnalysisId(analysis.id);
+          const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(analysis.id);
+          
+          return {
+            id: analysis.id,
+            fileName: analysis.fileName,
+            createdAt: analysis.createdAt,
+            totalMarkers: analysis.totalMarkers,
+            analyzedVariants: analysis.analyzedVariants,
+            riskFactors: analysis.riskFactors,
+            status: analysis.status || 'completed',
+            summary: {
+              highRiskCount: markers.filter(m => m.impact === 'High').length,
+              moderateRiskCount: markers.filter(m => m.impact === 'Moderate').length,
+              lowRiskCount: markers.filter(m => m.impact === 'Low').length,
+              totalRiskAssessments: riskAssessments.length
+            }
+          };
+        })
+      );
+      
+      res.json(historyWithSummary);
     } catch (error) {
-      console.error('Error clearing data:', error);
-      res.status(500).json({ message: "Failed to clear data" });
+      console.error('Error fetching analysis history:', error);
+      res.status(500).json({ message: "Failed to fetch analysis history" });
+    }
+  });
+
+  // Export analysis data
+  app.get("/api/export/:analysisId", async (req: Request, res: Response) => {
+    try {
+      const analysisId = parseInt(req.params.analysisId);
+      const analysis = await storage.getGeneticAnalysis(analysisId);
+      
+      if (!analysis) {
+        return res.status(404).json({ message: "Analysis not found" });
+      }
+
+      const markers = await storage.getGeneticMarkersByAnalysisId(analysisId);
+      const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(analysisId);
+      const chatMessages = await storage.getChatMessagesByAnalysisId(analysisId);
+
+      const exportData = {
+        analysis,
+        markers,
+        riskAssessments,
+        chatMessages,
+        exportedAt: new Date().toISOString(),
+        exportVersion: "1.0"
+      };
+
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', `attachment; filename="genetic-analysis-${analysisId}-${new Date().toISOString().split('T')[0]}.json"`);
+      res.json(exportData);
+    } catch (error) {
+      console.error('Error exporting analysis:', error);
+      res.status(500).json({ message: "Failed to export analysis" });
+    }
+  });
+
+  // Get genetic analysis data
+  app.get("/api/genetic-analysis", async (req: Request, res: Response) => {
+    try {
+      const analyses = await storage.getAllGeneticAnalyses();
+      if (analyses.length === 0) {
+        return res.json({ analysis: null, markers: [], riskAssessments: [] });
+      }
+
+      const latestAnalysis = analyses[0];
+      const markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
+      const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(latestAnalysis.id);
+
+      res.json({
+        analysis: latestAnalysis,
+        markers,
+        riskAssessments
+      });
+    } catch (error) {
+      console.error('Error fetching genetic analysis:', error);
+      res.status(500).json({ message: "Failed to fetch genetic analysis" });
     }
   });
 
   // Get analysis overview
-  app.get("/api/analysis-overview", async (req, res) => {
+  app.get("/api/analysis-overview", async (req: Request, res: Response) => {
     try {
       const analyses = await storage.getAllGeneticAnalyses();
       
@@ -306,17 +310,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const latestAnalysis = analyses[analyses.length - 1];
-      
-      // Use the stored totalMarkers from analysis (which is correct as 3)
-      // Get markers to double-check the count
-      const markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
-      
+      const latestAnalysis = analyses[0];
+      const allMarkers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
+      const highRiskCount = allMarkers.filter(m => m.impact === 'High').length;
+
       res.json({
-        totalMarkers: markers.length,
-        analyzedVariants: latestAnalysis.analyzedVariants,
-        riskFactors: `${latestAnalysis.riskFactors} High`,
-        lastAnalysis: "Recently"
+        totalMarkers: latestAnalysis.totalMarkers,
+        analyzedVariants: `${latestAnalysis.analyzedVariants}%`,
+        riskFactors: `${highRiskCount} High`,
+        lastAnalysis: new Date(latestAnalysis.createdAt).toLocaleDateString()
       });
     } catch (error) {
       console.error('Error fetching analysis overview:', error);
@@ -324,181 +326,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get latest analysis
-  app.get("/api/latest-analysis", async (req, res) => {
-    try {
-      const analyses = await storage.getAllGeneticAnalyses();
-      if (analyses.length === 0) {
-        return res.json(null);
-      }
-      res.json(analyses[analyses.length - 1]);
-    } catch (error) {
-      console.error('Error fetching latest analysis:', error);
-      res.status(500).json({ message: "Failed to fetch latest analysis" });
-    }
-  });
-
-  // Get genetic analysis by ID
-  app.get("/api/genetic-analysis", async (req, res) => {
-    try {
-      const analyses = await storage.getAllGeneticAnalyses();
-      const analysisId = req.query.analysisId ? parseInt(req.query.analysisId as string) : null;
-      
-      if (analysisId) {
-        const analysis = analyses.find(a => a.id === analysisId);
-        if (!analysis) {
-          return res.status(404).json({ message: "Analysis not found" });
-        }
-        
-        const markers = await storage.getGeneticMarkersByAnalysisId(analysisId);
-        const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(analysisId);
-        res.json({ 
-          analysis, 
-          markers, 
-          riskAssessments 
-        });
-      } else {
-        // Return latest analysis if no ID provided
-        const latestAnalysis = analyses[analyses.length - 1];
-        if (!latestAnalysis) {
-          return res.json({ markers: [] });
-        }
-        
-        const markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
-        const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(latestAnalysis.id);
-        res.json({ 
-          analysis: latestAnalysis, 
-          markers, 
-          riskAssessments 
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching genetic analysis:', error);
-      res.status(500).json({ message: "Failed to fetch genetic analysis" });
-    }
-  });
-
-  // Get risk assessments
-  app.get("/api/risk-assessments", async (req, res) => {
-    try {
-      const analyses = await storage.getAllGeneticAnalyses();
-      const analysisId = req.query.analysisId ? parseInt(req.query.analysisId as string) : null;
-      
-      if (analysisId) {
-        const assessments = await storage.getRiskAssessmentsByAnalysisId(analysisId);
-        res.json(assessments);
-      } else {
-        // Return risk assessments for latest analysis
-        const latestAnalysis = analyses[analyses.length - 1];
-        if (!latestAnalysis) {
-          return res.json([]);
-        }
-        
-        const assessments = await storage.getRiskAssessmentsByAnalysisId(latestAnalysis.id);
-        res.json(assessments);
-      }
-    } catch (error) {
-      console.error('Error fetching risk assessments:', error);
-      res.status(500).json({ message: "Failed to fetch risk assessments" });
-    }
-  });
-
-  // Interactive chat endpoint
-  app.post("/api/chat", async (req, res) => {
+  // Chat endpoint
+  app.post("/api/chat", async (req: Request, res: Response) => {
     try {
       const { message, analysisId } = req.body;
-      
+
       if (!message) {
-        return res.status(400).json({ message: "Question is required" });
+        return res.status(400).json({ message: "Message is required" });
       }
 
-      // Get genetic markers for context
-      let markers: any[] = [];
-      if (analysisId) {
-        markers = await storage.getGeneticMarkersByAnalysisId(analysisId);
-      } else {
-        // Use latest analysis
-        const analyses = await storage.getAllGeneticAnalyses();
-        if (analyses.length > 0) {
-          const latestAnalysis = analyses[analyses.length - 1];
-          markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
-        }
-      }
-
-      // Convert stored markers to analysis request format
-      const markerRequests: GeneticAnalysisRequest[] = markers.map(marker => ({
-        gene: marker.gene,
-        variant: marker.variant,
-        genotype: marker.genotype,
-        chromosome: marker.chromosome || undefined,
-        position: marker.position || undefined
-      }));
+      const markers = analysisId ? 
+        await storage.getGeneticMarkersByAnalysisId(analysisId) : 
+        [];
 
       const response = await answerGeneticQuestion({
         question: message,
-        markers: markerRequests
+        markers: markers.map(m => ({
+          gene: m.gene,
+          variant: m.variant,
+          genotype: m.genotype,
+          chromosome: m.chromosome,
+          position: m.position
+        }))
       });
 
-      // Store the chat message
-      const targetAnalysisId = analysisId || (markers.length > 0 ? markers[0].analysisId : 1);
-      await storage.createChatMessage({
-        analysisId: targetAnalysisId,
-        message,
-        response
-      });
+      if (analysisId) {
+        await storage.createChatMessage({
+          message,
+          analysisId,
+          response,
+          timestamp: new Date()
+        });
+      }
 
       res.json({ response });
     } catch (error) {
       console.error('Chat error:', error);
       res.status(500).json({ 
-        message: "Failed to process question",
-        error: error instanceof Error ? error.message : 'Unknown error'
+        message: error instanceof Error ? error.message : "Failed to process chat message" 
       });
     }
   });
 
-  // Get chat history
-  app.get("/api/chat", async (req, res) => {
+  // Get chat messages
+  app.get("/api/chat", async (req: Request, res: Response) => {
     try {
-      const analyses = await storage.getAllGeneticAnalyses();
       const analysisId = req.query.analysisId ? parseInt(req.query.analysisId as string) : null;
       
-      if (analysisId) {
-        const messages = await storage.getChatMessagesByAnalysisId(analysisId);
-        res.json(messages);
-      } else {
-        // Return chat for latest analysis
-        const latestAnalysis = analyses[analyses.length - 1];
-        if (!latestAnalysis) {
-          return res.json([]);
-        }
-        
-        const messages = await storage.getChatMessagesByAnalysisId(latestAnalysis.id);
-        res.json(messages);
+      if (!analysisId) {
+        return res.json([]);
       }
+
+      const messages = await storage.getChatMessagesByAnalysisId(analysisId);
+      res.json(messages);
     } catch (error) {
-      console.error('Error fetching chat history:', error);
-      res.status(500).json({ message: "Failed to fetch chat history" });
+      console.error('Error fetching chat messages:', error);
+      res.status(500).json({ message: "Failed to fetch chat messages" });
     }
   });
 
-  // Model status endpoint
-  app.get("/api/model-status", async (req, res) => {
-    try {
-      const isHealthy = await localLLM.checkHealth();
-      res.json([
-        { 
-          name: isHealthy ? 'Llama3.1:8b (Local)' : 'Check: localhost:11434', 
-          status: isHealthy ? 'active' as const : 'standby' as const 
-        }
-      ]);
-    } catch (error) {
-      res.json([
-        { name: 'Check: localhost:11434', status: 'standby' as const }
-      ]);
-    }
-  });
-
-  const server = createServer(app);
   return server;
 }
