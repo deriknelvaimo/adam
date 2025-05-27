@@ -390,18 +390,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "No valid genetic markers found in file" });
       }
 
-      // Analyze each marker with enhanced categorization
-      const analyzedMarkers = geneticData.markers.map(marker => {
-        const analysis = analyzeGeneticRisk(marker.gene, marker.variant, marker.genotype);
-        return {
-          ...marker,
-          impact: analysis.impact,
-          riskScore: analysis.riskScore,
-          clinicalSignificance: analysis.clinicalSignificance,
-          category: analysis.category,
-          subcategory: analysis.subcategory
-        };
-      });
+      // Analyze each marker using AI-powered genetic analysis
+      const analyzedMarkers = [];
+      for (const marker of geneticData.markers) {
+        try {
+          const aiAnalysis = await analyzeGeneticMarker({
+            gene: marker.gene,
+            variant: marker.variant,
+            genotype: marker.genotype,
+            chromosome: marker.chromosome,
+            position: marker.position
+          });
+          
+          analyzedMarkers.push({
+            ...marker,
+            impact: aiAnalysis.impact,
+            riskScore: aiAnalysis.riskScore,
+            clinicalSignificance: aiAnalysis.clinicalSignificance,
+            healthCategory: aiAnalysis.healthCategory,
+            subcategory: aiAnalysis.subcategory,
+            explanation: aiAnalysis.explanation,
+            recommendations: aiAnalysis.recommendations
+          });
+        } catch (error) {
+          console.error(`Failed to analyze marker ${marker.gene}:`, error);
+          // Skip markers that fail analysis rather than using fallback data
+          continue;
+        }
+      }
 
       // Calculate analysis statistics
       const totalMarkers = analyzedMarkers.length;
@@ -431,7 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         analysisData
       });
 
-      // Store genetic markers
+      // Store genetic markers with AI analysis results
       for (const marker of analyzedMarkers) {
         await storage.createGeneticMarker({
           analysisId: analysis.id,
@@ -442,18 +458,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           clinicalSignificance: marker.clinicalSignificance,
           chromosome: marker.chromosome,
           position: marker.position,
-          riskScore: marker.riskScore.toString()
+          riskScore: marker.riskScore,
+          healthCategory: marker.healthCategory,
+          subcategory: marker.subcategory,
+          explanation: marker.explanation,
+          recommendations: marker.recommendations
         });
       }
 
-      // Generate and store risk assessments
-      const riskAssessments = generateRiskAssessments(analyzedMarkers);
-      for (const assessment of riskAssessments) {
+      // Generate AI-powered risk assessments
+      const aiRiskAssessments = await generateRiskAssessments(analyzedMarkers);
+      for (const assessment of aiRiskAssessments) {
         await storage.createRiskAssessment({
           analysisId: analysis.id,
-          condition: assessment.condition,
-          riskLevel: assessment.riskLevel,
-          percentage: assessment.percentage.toString(),
+          condition: assessment.category,
+          riskLevel: assessment.riskLevel.toString(),
+          percentage: assessment.riskLevel.toString(),
           description: assessment.description
         });
       }
@@ -579,29 +599,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const markers = await storage.getGeneticMarkersByAnalysisId(parseInt(analysisId));
       const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(parseInt(analysisId));
 
-      // Enhanced AI response system based on comprehensive genetic analysis
-      let response = "I understand you're asking about your genetic data. ";
-      
-      const lowerMessage = message.toLowerCase();
-      
-      if (lowerMessage.includes('apoe') || lowerMessage.includes('alzheimer')) {
-        const apoeMarker = markers.find(m => m.gene === 'APOE');
-        if (apoeMarker) {
-          const riskLevel = apoeMarker.riskScore > 0.7 ? 'significantly elevated' : apoeMarker.riskScore > 0.4 ? 'moderately increased' : 'lower than average';
-          response = `Based on your genetic data, you carry the APOE ${apoeMarker.genotype} genotype at ${apoeMarker.variant}. This gives you a ${riskLevel} risk for Alzheimer's disease. ${apoeMarker.clinicalSignificance}. 
+      // Use AI-powered genetic counseling
+      try {
+        // Convert markers to the format expected by AI analysis
+        const geneticMarkers = markers.map(marker => ({
+          gene: marker.gene,
+          variant: marker.variant,
+          genotype: marker.genotype,
+          chromosome: marker.chromosome || undefined,
+          position: marker.position || undefined
+        }));
 
-Key recommendations:
-• Regular cardiovascular exercise (30+ min, 5x/week)
-• Mediterranean diet rich in omega-3s
-• Cognitive engagement through learning and social activities
-• Stress management and quality sleep (7-9 hours)
-• Regular monitoring of cardiovascular health
+        // Get previous chat context for continuity
+        const previousMessages = await storage.getChatMessagesByAnalysisId(parseInt(analysisId));
+        const previousContext = previousMessages.length > 0 
+          ? previousMessages.slice(-3).map(msg => `Q: ${msg.message}\nA: ${msg.response}`).join('\n\n')
+          : undefined;
 
-Remember, genetics is just one factor - lifestyle interventions can significantly influence outcomes.`;
-        } else {
-          response = "I don't see any APOE variants in your current genetic data. This gene is commonly associated with Alzheimer's disease risk and would typically be included in comprehensive genetic panels.";
-        }
-      } else if (lowerMessage.includes('cardiovascular') || lowerMessage.includes('heart') || lowerMessage.includes('blood pressure')) {
+        const response = await answerGeneticQuestion({
+          question: message,
+          markers: geneticMarkers,
+          previousContext
+        });
+
+        // Store the chat message with AI response
+        const chatMessage = await storage.createChatMessage({
+          analysisId: parseInt(analysisId),
+          message,
+          response
+        });
+
+        res.json({
+          id: chatMessage.id,
+          message: chatMessage.message,
+          response: chatMessage.response,
+          timestamp: chatMessage.timestamp
+        });
+
+      } catch (aiError) {
+        console.error('AI chat error:', aiError);
+        // Fallback response if AI fails
+        const fallbackResponse = "I'm having trouble processing your question right now. Please try rephrasing your question or ask about specific genetic markers in your analysis.";
+        
+        const chatMessage = await storage.createChatMessage({
+          analysisId: parseInt(analysisId),
+          message,
+          response: fallbackResponse
+        });
+
+        res.json({
+          id: chatMessage.id,
+          message: chatMessage.message,
+          response: chatMessage.response,
+          timestamp: chatMessage.timestamp
+        });
+      }
+
+    } catch (error) {
+      console.error('Chat error:', error);
+      res.status(500).json({ message: "Failed to process chat message" });
+    }
+  });
         const cardioMarkers = markers.filter(m => m.category === 'Cardiovascular Health');
         const cardioAssessment = riskAssessments.find(r => r.condition.includes('Cardiovascular'));
         
