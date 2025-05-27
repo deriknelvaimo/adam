@@ -144,6 +144,148 @@ export async function registerRoutes(app: Express): Promise<Server> {
           analyzedMarkers.push({
             ...marker,
             impact: aiAnalysis.impact,
+            clinicalSignificance: aiAnalysis.clinicalSignificance,
+            riskScore: aiAnalysis.riskScore,
+            healthCategory: aiAnalysis.healthCategory,
+            subcategory: aiAnalysis.subcategory,
+            explanation: aiAnalysis.explanation,
+            recommendations: aiAnalysis.recommendations
+          });
+        } catch (error) {
+          console.error(`Error analyzing marker ${marker.gene}:`, error);
+          continue;
+        }
+      }
+
+      // Send analysis complete event
+      sendProgressUpdate(analysisId, {
+        type: 'analysis_complete',
+        total: totalMarkersCount,
+        analyzedCount: analyzedMarkers.length,
+        message: `Analysis complete! Processed ${analyzedMarkers.length} markers`
+      });
+
+      // Calculate analysis statistics
+      const totalMarkersAnalyzed = analyzedMarkers.length;
+      const analyzedVariants = Math.round((totalMarkersAnalyzed / geneticData.markers.length) * 100);
+      const highRiskCount = analyzedMarkers.filter(m => m.impact === 'High').length;
+      const moderateRiskCount = analyzedMarkers.filter(m => m.impact === 'Moderate').length;
+      const riskFactors = highRiskCount;
+
+      // Create genetic analysis record
+      const analysisData = {
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        uploadDate: new Date(),
+        totalMarkers: totalMarkersAnalyzed,
+        highRiskMarkers: highRiskCount,
+        moderateRiskMarkers: moderateRiskCount,
+        processedMarkers: analyzedMarkers
+      };
+
+      const analysis = await storage.createGeneticAnalysis({
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype || 'application/octet-stream',
+        totalMarkers: totalMarkersAnalyzed,
+        analyzedVariants: analyzedVariants.toString(),
+        riskFactors,
+        analysisData
+      });
+
+      // Store genetic markers with AI analysis results
+      for (const marker of analyzedMarkers) {
+        await storage.createGeneticMarker({
+          analysisId: analysis.id,
+          gene: marker.gene,
+          variant: marker.variant,
+          genotype: marker.genotype,
+          impact: marker.impact,
+          clinicalSignificance: marker.clinicalSignificance,
+          chromosome: marker.chromosome,
+          position: marker.position,
+          riskScore: marker.riskScore,
+          healthCategory: marker.healthCategory,
+          subcategory: marker.subcategory,
+          explanation: marker.explanation,
+          recommendations: marker.recommendations
+        });
+      }
+
+      // Generate AI-powered risk assessments
+      try {
+        const aiRiskAssessments = await generateRiskAssessments(analyzedMarkers);
+        for (const assessment of aiRiskAssessments) {
+          await storage.createRiskAssessment({
+            analysisId: analysis.id,
+            category: assessment.category,
+            riskLevel: assessment.riskLevel,
+            description: assessment.description
+          });
+        }
+      } catch (error) {
+        console.error('Error generating risk assessments:', error);
+      }
+
+      // Clean up SSE connection
+      cleanupProgressConnection(analysisId);
+
+      res.json({
+        analysisId: analysis.id,
+        progressId: analysisId,
+        summary: {
+          totalMarkers: totalMarkersAnalyzed,
+          analyzedVariants: `${analyzedVariants}%`,
+          riskFactors: `${riskFactors} High`,
+          lastAnalysis: 'Just now'
+        },
+        message: "Genetic analysis completed successfully"
+      });
+
+    } catch (error) {
+      console.error('Genetic analysis error:', error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to analyze genetic data" 
+      });
+    }
+  });
+      
+      for (let i = 0; i < geneticData.markers.length; i++) {
+        const marker = geneticData.markers[i];
+        try {
+          console.log(`🧬 Analyzing: ${marker.gene} ${marker.variant}`);
+          
+          // Send progress update
+          sendProgressUpdate(analysisId, {
+            type: 'marker_progress',
+            current: i + 1,
+            total: totalMarkersCount,
+            gene: marker.gene,
+            message: `Analyzing ${marker.gene}...`
+          });
+          
+          const aiAnalysis = await analyzeGeneticMarker({
+            gene: marker.gene,
+            variant: marker.variant,
+            genotype: marker.genotype,
+            chromosome: marker.chromosome,
+            position: marker.position
+          });
+          console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
+          
+          // Send completion update for this marker
+          sendProgressUpdate(analysisId, {
+            type: 'marker_complete',
+            current: i + 1,
+            total: totalMarkersCount,
+            gene: marker.gene,
+            impact: aiAnalysis.impact,
+            message: `${marker.gene}: ${aiAnalysis.impact} impact`
+          });
+          
+          analyzedMarkers.push({
+            ...marker,
+            impact: aiAnalysis.impact,
             riskScore: aiAnalysis.riskScore,
             clinicalSignificance: aiAnalysis.clinicalSignificance,
             healthCategory: aiAnalysis.healthCategory,
