@@ -29,6 +29,8 @@ export default function GeneticsDashboard() {
 
   const handleUploadStart = () => {
     setIsAnalyzing(true);
+    // Generate progress ID when analysis starts
+    setProgressId(Date.now().toString());
   };
 
   return (
@@ -74,7 +76,7 @@ export default function GeneticsDashboard() {
           {/* Left Column: Upload and Quick Stats */}
           <div className="lg:col-span-1 space-y-6">
             <FileUpload onUploadComplete={handleUploadComplete} onUploadStart={handleUploadStart} />
-            <AnalysisProgress isAnalyzing={isAnalyzing} progressId={progressId} />
+            <AnalysisProgress isAnalyzing={isAnalyzing} progressId={progressId || undefined} />
             <QuickStats />
             <ModelStatus />
           </div>
