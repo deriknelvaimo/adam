@@ -32,30 +32,39 @@ export default function RiskAssessment({ riskAssessments }: RiskAssessmentProps)
     );
   }
 
+  // Calculate the maximum risk level for proper scaling
+  const maxRiskLevel = Math.max(...riskAssessments.map(a => parseFloat(a.riskLevel) || 0));
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {riskAssessments.map((assessment) => (
-        <Card key={assessment.id} className="border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="font-medium text-gray-900">{assessment.condition}</h4>
-            <Badge className={getRiskColor(assessment.riskLevel)}>
-              {assessment.riskLevel}
-            </Badge>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-            <div 
-              className={`h-2 rounded-full ${getRiskBarColor(assessment.riskLevel)}`}
-              style={{ width: `${assessment.percentage}%` }}
-            ></div>
-          </div>
-          <p className="text-sm text-gray-600">{assessment.description}</p>
-          <div className="mt-2 text-right">
-            <span className="text-lg font-semibold text-gray-900">
-              {assessment.percentage}%
-            </span>
-          </div>
-        </Card>
-      ))}
+      {riskAssessments.map((assessment) => {
+        // Calculate proportional width based on actual risk level
+        const riskValue = parseFloat(assessment.riskLevel) || 0;
+        const barWidth = maxRiskLevel > 0 ? (riskValue / maxRiskLevel) * 100 : 0;
+        
+        return (
+          <Card key={assessment.id} className="border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium text-gray-900">{assessment.category}</h4>
+              <Badge className={getRiskColor(assessment.riskLevel)}>
+                {assessment.riskLevel}
+              </Badge>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+              <div 
+                className={`h-2 rounded-full ${getRiskBarColor(assessment.riskLevel)}`}
+                style={{ width: `${barWidth}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-gray-600">{assessment.description}</p>
+            <div className="mt-2 text-right">
+              <span className="text-lg font-semibold text-gray-900">
+                {assessment.riskLevel}
+              </span>
+            </div>
+          </Card>
+        );
+      })}
     </div>
   );
 }
