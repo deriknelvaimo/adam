@@ -31,7 +31,11 @@ export const geneticMarkers = pgTable("genetic_markers", {
   clinicalSignificance: text("clinical_significance").notNull(),
   chromosome: text("chromosome"),
   position: integer("position"),
-  riskScore: decimal("risk_score", { precision: 5, scale: 2 }),
+  riskScore: integer("risk_score"),
+  healthCategory: text("health_category"),
+  subcategory: text("subcategory"),
+  explanation: text("explanation"),
+  recommendations: text("recommendations").array(),
 });
 
 export const riskAssessments = pgTable("risk_assessments", {
@@ -77,6 +81,10 @@ export const insertGeneticMarkerSchema = createInsertSchema(geneticMarkers).pick
   chromosome: true,
   position: true,
   riskScore: true,
+  healthCategory: true,
+  subcategory: true,
+  explanation: true,
+  recommendations: true,
 });
 
 export const insertRiskAssessmentSchema = createInsertSchema(riskAssessments).pick({

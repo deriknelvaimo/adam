@@ -10,6 +10,7 @@ import {
   insertChatMessageSchema,
   type GeneticFileData
 } from "@shared/schema";
+import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion, type GeneticAnalysisRequest } from "./genetic-ai";
 
 // Configure multer for file uploads
 const upload = multer({

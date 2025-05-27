@@ -114,7 +114,11 @@ export class MemStorage implements IStorage {
       id,
       chromosome: insertMarker.chromosome || null,
       position: insertMarker.position || null,
-      riskScore: insertMarker.riskScore || null
+      riskScore: insertMarker.riskScore || null,
+      healthCategory: insertMarker.healthCategory || null,
+      subcategory: insertMarker.subcategory || null,
+      explanation: insertMarker.explanation || null,
+      recommendations: insertMarker.recommendations || null
     };
     this.geneticMarkers.set(id, marker);
     return marker;
