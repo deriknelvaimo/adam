@@ -27,13 +27,11 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
     },
     onSuccess: (data) => {
       toast({
-        title: "Analysis Complete",
-        description: `Successfully analyzed ${selectedFile?.name}. Found ${data.summary.totalMarkers} genetic markers.`,
+        title: "Analysis Started",
+        description: `Processing ${selectedFile?.name} with ${data.totalMarkers} genetic markers.`,
       });
       setSelectedFile(null);
       onUploadComplete(data.analysisId, data.progressId);
-      queryClient.invalidateQueries({ queryKey: ['/api/analysis-overview'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/latest-analysis'] });
     },
     onError: (error: Error) => {
       toast({
