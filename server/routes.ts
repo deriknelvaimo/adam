@@ -4,6 +4,9 @@ import multer from "multer";
 import { storage } from "./storage";
 import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion } from "./genetic-ai";
 import { sendProgressUpdate, setupProgressSSE, cleanupProgressConnection } from "./progress-sse";
+import { db } from "./db";
+import { geneticAnalyses } from "../shared/schema";
+import { eq } from "drizzle-orm";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -194,6 +197,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalMarkersAnalyzed = analyzedMarkers.length;
       const analyzedVariants = Math.round((totalMarkersAnalyzed / fileData.markers.length) * 100);
       const riskFactors = analyzedMarkers.filter(m => m.impact === 'High').length;
+
+      // Update the analysis record with calculated values
+      await db.update(geneticAnalyses)
+        .set({
+          analyzedVariants: `${analyzedVariants}.00`,
+          riskFactors: riskFactors,
+          status: 'completed'
+        })
+        .where(eq(geneticAnalyses.id, analysis.id));
 
       sendProgressUpdate(analysisId, {
         type: 'analysis_complete',
