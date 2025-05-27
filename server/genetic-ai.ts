@@ -149,13 +149,33 @@ Focus on evidence-based interpretations and practical recommendations.`;
     
     const response = await localLLM.generateResponse(prompt, systemPrompt);
 
+    // Try to extract JSON from the response
     const jsonMatch = response.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
-      const assessments = JSON.parse(jsonMatch[0]);
-      return Array.isArray(assessments) ? assessments : [];
+      try {
+        const cleanJson = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); // Remove control characters
+        const assessments = JSON.parse(cleanJson);
+        return Array.isArray(assessments) ? assessments : [];
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        // Return basic assessment when JSON parsing fails
+        return [{
+          category: 'General Health',
+          subcategory: 'Overall Risk',
+          riskLevel: 2.5,
+          description: 'Risk assessment could not be completed. Please try again.',
+          recommendation: 'Contact support if this issue persists.'
+        }];
+      }
     }
 
-    return [];
+    return [{
+      category: 'General Health', 
+      subcategory: 'Overall Risk',
+      riskLevel: 2.5,
+      description: 'Risk assessment could not be completed.',
+      recommendation: 'Please try again.'
+    }];
   } catch (error) {
     console.error('Error generating risk assessments:', error);
     return [];

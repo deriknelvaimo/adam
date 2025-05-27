@@ -223,6 +223,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get specific analysis by ID
+  app.get("/api/analysis/:id", async (req: Request, res: Response) => {
+    try {
+      const analysisId = parseInt(req.params.id);
+      if (isNaN(analysisId)) {
+        return res.status(400).json({ message: "Invalid analysis ID" });
+      }
+
+      const analysis = await storage.getGeneticAnalysis(analysisId);
+      if (!analysis) {
+        return res.status(404).json({ message: "Analysis not found" });
+      }
+
+      const markers = await storage.getGeneticMarkersByAnalysisId(analysisId);
+      const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(analysisId);
+
+      res.json({
+        analysis,
+        markers,
+        riskAssessments
+      });
+    } catch (error) {
+      console.error('Error fetching specific analysis:', error);
+      res.status(500).json({ message: "Failed to fetch analysis details" });
+    }
+  });
+
   // Get analysis history
   app.get("/api/analysis-history", async (req: Request, res: Response) => {
     try {

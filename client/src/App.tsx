@@ -12,6 +12,7 @@ function Router() {
     <Switch>
       <Route path="/" component={GeneticsDashboard} />
       <Route path="/history" component={AnalysisHistory} />
+      <Route path="/analysis/:id" component={AnalysisDetails} />
       <Route component={NotFound} />
     </Switch>
   );
