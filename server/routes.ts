@@ -183,10 +183,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const assessment of riskAssessments) {
         await storage.createRiskAssessment({
           analysisId: analysis.id,
-          condition: assessment.condition,
+          category: assessment.category,
+          subcategory: assessment.subcategory,
           riskLevel: assessment.riskLevel,
-          percentage: assessment.percentage,
-          description: assessment.description
+          description: assessment.description,
+          recommendation: assessment.recommendation
         });
       }
 

@@ -43,10 +43,11 @@ export const geneticMarkers = pgTable("genetic_markers", {
 export const riskAssessments = pgTable("risk_assessments", {
   id: serial("id").primaryKey(),
   analysisId: integer("analysis_id").notNull(),
-  condition: text("condition").notNull(),
-  riskLevel: text("risk_level").notNull(),
-  percentage: decimal("percentage", { precision: 5, scale: 2 }).notNull(),
+  category: text("category").notNull(),
+  subcategory: text("subcategory"),
+  riskLevel: decimal("risk_level", { precision: 3, scale: 2 }).notNull(),
   description: text("description").notNull(),
+  recommendation: text("recommendation"),
 });
 
 export const chatMessages = pgTable("chat_messages", {
