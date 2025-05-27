@@ -62,7 +62,13 @@ Focus on clinical accuracy and evidence-based interpretations.`;
       // Extract JSON from the response
       const jsonMatch = response.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const analysis = JSON.parse(jsonMatch[0]);
+        // Clean the JSON string to remove control characters
+        const cleanJsonString = jsonMatch[0]
+          .replace(/[\x00-\x1F\x7F]/g, ' ')  // Remove control characters
+          .replace(/\s+/g, ' ')              // Normalize whitespace
+          .trim();
+        
+        const analysis = JSON.parse(cleanJsonString);
         return {
           gene: marker.gene,
           variant: marker.variant,
