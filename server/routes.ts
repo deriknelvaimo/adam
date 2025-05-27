@@ -363,10 +363,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allMarkers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
       const highRiskCount = allMarkers.filter(m => m.impact === 'High').length;
 
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
+
       res.json({
         totalMarkers: latestAnalysis.totalMarkers,
         analyzedVariants: `${latestAnalysis.analyzedVariants}%`,
-        riskFactors: `${highRiskCount} High`,
+        riskFactors: `${latestAnalysis.riskFactors} High`,
         lastAnalysis: new Date(latestAnalysis.createdAt).toLocaleDateString()
       });
     } catch (error) {

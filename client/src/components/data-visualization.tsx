@@ -234,25 +234,27 @@ export default function DataVisualization({ analysisId }: DataVisualizationProps
           {riskAssessments?.map((assessment: any, index: number) => (
             <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-medium text-gray-900 text-sm">{assessment.condition}</h4>
+                <h4 className="font-medium text-gray-900 text-sm">{assessment.category}</h4>
                 <span className={`text-xs px-2 py-1 rounded ${
-                  assessment.riskLevel.includes('High') ? 'bg-red-100 text-red-800' :
-                  assessment.riskLevel.includes('Moderate') ? 'bg-yellow-100 text-yellow-800' :
-                  assessment.riskLevel.includes('Low') ? 'bg-green-100 text-green-800' :
-                  'bg-blue-100 text-blue-800'
+                  parseFloat(assessment.riskLevel) >= 4 ? 'bg-red-100 text-red-800' :
+                  parseFloat(assessment.riskLevel) >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                  parseFloat(assessment.riskLevel) >= 2 ? 'bg-blue-100 text-blue-800' :
+                  'bg-green-100 text-green-800'
                 }`}>
-                  {assessment.riskLevel}
+                  {parseFloat(assessment.riskLevel) >= 4 ? 'High' :
+                   parseFloat(assessment.riskLevel) >= 3 ? 'Moderate' :
+                   parseFloat(assessment.riskLevel) >= 2 ? 'Low' : 'Protective'}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                 <div 
                   className={`h-2 rounded-full ${
-                    assessment.riskLevel.includes('High') ? 'bg-red-600' :
-                    assessment.riskLevel.includes('Moderate') ? 'bg-yellow-600' :
-                    assessment.riskLevel.includes('Low') ? 'bg-green-600' :
-                    'bg-blue-600'
+                    parseFloat(assessment.riskLevel) >= 4 ? 'bg-red-600' :
+                    parseFloat(assessment.riskLevel) >= 3 ? 'bg-yellow-600' :
+                    parseFloat(assessment.riskLevel) >= 2 ? 'bg-blue-600' :
+                    'bg-green-600'
                   }`}
-                  style={{ width: `${assessment.percentage}%` }}
+                  style={{ width: `${(parseFloat(assessment.riskLevel) / 5) * 100}%` }}
                 ></div>
               </div>
               <p className="text-xs text-gray-600">{assessment.description}</p>
