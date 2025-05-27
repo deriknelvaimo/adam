@@ -284,13 +284,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const totalMarkers = analyses.reduce((sum, analysis) => sum + analysis.totalMarkers, 0);
-      const lastAnalysis = analyses[analyses.length - 1];
+      const latestAnalysis = analyses[analyses.length - 1];
+      const totalMarkers = latestAnalysis.totalMarkers;
       
       res.json({
         totalMarkers,
-        analyzedVariants: lastAnalysis.analyzedVariants,
-        riskFactors: `${lastAnalysis.riskFactors} High`,
+        analyzedVariants: latestAnalysis.analyzedVariants,
+        riskFactors: `${latestAnalysis.riskFactors} High`,
         lastAnalysis: "Recently"
       });
     } catch (error) {
