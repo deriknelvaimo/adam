@@ -149,16 +149,59 @@ Focus on evidence-based interpretations and practical recommendations.`;
     
     const response = await localLLM.generateResponse(prompt, systemPrompt);
 
-    // Try to extract JSON from the response
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    // Try to extract JSON from the response with better parsing
+    const jsonMatch = response.match(/\[[\s\S]*?\]/);
     if (jsonMatch) {
       try {
-        const cleanJson = jsonMatch[0].replace(/[\u0000-\u001F\u007F-\u009F]/g, ""); // Remove control characters
+        // More aggressive cleaning of the JSON string
+        let cleanJson = jsonMatch[0];
+        
+        // Remove control characters and invalid JSON characters
+        cleanJson = cleanJson.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+        
+        // Fix common JSON issues from AI responses
+        cleanJson = cleanJson.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":'); // Add quotes to unquoted keys
+        cleanJson = cleanJson.replace(/:\s*([^",\[\]{}]+)(\s*[,}])/g, ':"$1"$2'); // Quote unquoted string values
+        cleanJson = cleanJson.replace(/","/g, '", "'); // Fix spacing issues
+        cleanJson = cleanJson.replace(/"\s*,\s*"/g, '", "'); // Normalize spacing
+        
+        // Try to find the last complete object
+        const lastBraceIndex = cleanJson.lastIndexOf('}');
+        if (lastBraceIndex > 0) {
+          cleanJson = cleanJson.substring(0, lastBraceIndex + 1) + ']';
+        }
+        
         const assessments = JSON.parse(cleanJson);
         return Array.isArray(assessments) ? assessments : [];
       } catch (parseError) {
         console.error('JSON parse error:', parseError);
-        // Return basic assessment when JSON parsing fails
+        console.error('Raw response:', response.substring(0, 500) + '...');
+        
+        // Fallback: try to extract individual assessment objects manually
+        try {
+          const categoryMatches = response.match(/"category":\s*"([^"]+)"/g);
+          const riskMatches = response.match(/"riskLevel":\s*([0-9.]+)/g);
+          
+          if (categoryMatches && categoryMatches.length > 1) {
+            // Create basic assessments from extracted categories
+            return categoryMatches.slice(0, 4).map((match, index) => {
+              const category = match.match(/"category":\s*"([^"]+)"/)?.[1] || 'Health Category';
+              const riskLevel = riskMatches?.[index]?.match(/([0-9.]+)/)?.[1] || '2.5';
+              
+              return {
+                category: category,
+                subcategory: 'Risk Assessment',
+                riskLevel: parseFloat(riskLevel),
+                description: `Risk assessment for ${category}`,
+                recommendation: 'Consult with healthcare provider for detailed guidance.'
+              };
+            });
+          }
+        } catch (fallbackError) {
+          console.error('Fallback parsing also failed:', fallbackError);
+        }
+        
+        // Final fallback
         return [{
           category: 'General Health',
           subcategory: 'Overall Risk',
