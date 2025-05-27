@@ -120,7 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 client.send(JSON.stringify({
                   type: 'marker_progress',
                   current: i + 1,
-                  total: totalMarkers,
+                  total: totalMarkersCount,
                   gene: marker.gene,
                   variant: marker.variant,
                   message: `Analyzing ${marker.gene} ${marker.variant}...`
@@ -145,7 +145,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 client.send(JSON.stringify({
                   type: 'marker_complete',
                   current: i + 1,
-                  total: totalMarkers,
+                  total: totalMarkersCount,
                   gene: marker.gene,
                   impact: aiAnalysis.impact,
                   message: `${marker.gene}: ${aiAnalysis.impact} impact`

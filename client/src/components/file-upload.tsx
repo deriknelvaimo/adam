@@ -7,9 +7,10 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface FileUploadProps {
   onUploadComplete: (analysisId: number) => void;
+  onUploadStart?: () => void;
 }
 
-export default function FileUpload({ onUploadComplete }: FileUploadProps) {
+export default function FileUpload({ onUploadComplete, onUploadStart }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

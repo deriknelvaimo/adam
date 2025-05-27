@@ -6,9 +6,11 @@ import InteractiveChat from "@/components/interactive-chat";
 import DataVisualization from "@/components/data-visualization";
 import QuickStats from "@/components/quick-stats";
 import ModelStatus from "@/components/model-status";
+import AnalysisProgress from "@/components/analysis-progress";
 
 export default function GeneticsDashboard() {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const { data: latestAnalysis } = useQuery({
     queryKey: ['/api/latest-analysis'],
@@ -16,10 +18,15 @@ export default function GeneticsDashboard() {
   });
 
   // Use latest analysis if no specific analysis is selected
-  const analysisId = currentAnalysisId || latestAnalysis?.analysis?.id || null;
+  const analysisId = currentAnalysisId || latestAnalysis?.id || null;
 
   const handleUploadComplete = (analysisId: number) => {
     setCurrentAnalysisId(analysisId);
+    setIsAnalyzing(false);
+  };
+
+  const handleUploadStart = () => {
+    setIsAnalyzing(true);
   };
 
   return (
@@ -64,7 +71,8 @@ export default function GeneticsDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column: Upload and Quick Stats */}
           <div className="lg:col-span-1 space-y-6">
-            <FileUpload onUploadComplete={handleUploadComplete} />
+            <FileUpload onUploadComplete={handleUploadComplete} onUploadStart={handleUploadStart} />
+            <AnalysisProgress isAnalyzing={isAnalyzing} />
             <QuickStats />
             <ModelStatus />
           </div>
