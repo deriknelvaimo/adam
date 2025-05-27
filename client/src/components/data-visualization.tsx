@@ -45,10 +45,18 @@ export default function DataVisualization({ analysisId }: DataVisualizationProps
 
   const { markers, riskAssessments } = analysisData;
 
-  // Calculate visualization stats
+  // Calculate visualization stats from actual data
   const highRiskCount = markers?.filter((m: any) => m.impact === 'High').length || 0;
   const moderateRiskCount = markers?.filter((m: any) => m.impact === 'Moderate').length || 0;
-  const protectiveCount = markers?.filter((m: any) => m.impact === 'Low').length || 0;
+  const protectiveCount = markers?.filter((m: any) => m.impact === 'Low' || m.impact === 'Protective').length || 0;
+  
+  // Group markers by chromosome for visualization
+  const chromosomeData = markers?.reduce((acc: any, marker: any) => {
+    const chr = marker.chromosome || 'Unknown';
+    if (!acc[chr]) acc[chr] = [];
+    acc[chr].push(marker);
+    return acc;
+  }, {}) || {};
 
   return (
     <Card className="mt-8">
@@ -67,26 +75,58 @@ export default function DataVisualization({ analysisId }: DataVisualizationProps
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
-            <div className="bg-gray-50 rounded-lg p-6 h-64 flex items-center justify-center">
-              <div className="text-center">
-                <i className="fas fa-chart-bar text-4xl text-gray-400 mb-2"></i>
-                <p className="text-gray-600">Interactive genetic risk visualization</p>
-                <p className="text-sm text-gray-500">Chromosome-based risk heatmap will render here</p>
-                <div className="mt-4 grid grid-cols-6 gap-2">
-                  {[...Array(24)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`h-4 rounded ${
-                        i < 6 ? 'bg-red-200' :
-                        i < 12 ? 'bg-yellow-200' :
-                        i < 18 ? 'bg-green-200' :
-                        'bg-blue-200'
-                      }`}
-                      title={`Chromosome ${i + 1}`}
-                    />
-                  ))}
-                </div>
+            <div className="bg-gray-50 rounded-lg p-6">
+              <h4 className="text-md font-medium mb-4">Chromosome Distribution</h4>
+              <div className="space-y-3">
+                {Object.keys(chromosomeData).map((chr) => (
+                  <div key={chr} className="flex items-center space-x-4">
+                    <div className="w-20 text-sm font-medium text-gray-700">
+                      Chr {chr}
+                    </div>
+                    <div className="flex-1 flex space-x-2">
+                      {chromosomeData[chr].map((marker: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`h-8 px-3 rounded flex items-center text-xs font-medium text-white ${
+                            marker.impact === 'High' ? 'bg-red-500' :
+                            marker.impact === 'Moderate' ? 'bg-yellow-500' :
+                            marker.impact === 'Low' ? 'bg-green-500' :
+                            'bg-gray-400'
+                          }`}
+                          title={`${marker.gene} (${marker.variant}) - ${marker.impact} impact`}
+                        >
+                          {marker.gene}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
+              
+              {markers && markers.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-md font-medium mb-3">Genetic Marker Details</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {markers.map((marker: any, idx: number) => (
+                      <div key={idx} className="border rounded-lg p-3 bg-white">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">{marker.gene}</span>
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            marker.impact === 'High' ? 'bg-red-100 text-red-800' :
+                            marker.impact === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {marker.impact}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {marker.variant} • Chr {marker.chromosome} • {marker.genotype}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="lg:col-span-1">
