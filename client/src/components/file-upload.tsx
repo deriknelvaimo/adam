@@ -20,9 +20,9 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
-      formData.append('geneticFile', file);
+      formData.append('file', file);
       
-      const response = await apiRequest('POST', '/api/genetic-analysis', formData);
+      const response = await apiRequest('POST', '/api/upload-genetic-data', formData);
       return response.json();
     },
     onSuccess: (data) => {
