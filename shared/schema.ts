@@ -17,8 +17,10 @@ export const geneticAnalyses = pgTable("genetic_analyses", {
   totalMarkers: integer("total_markers").notNull(),
   analyzedVariants: decimal("analyzed_variants", { precision: 5, scale: 2 }).notNull(),
   riskFactors: integer("risk_factors").notNull(),
-  analysisData: jsonb("analysis_data").notNull(),
+  analysisData: jsonb("analysis_data"),
+  status: text("status").notNull().default("completed"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 export const geneticMarkers = pgTable("genetic_markers", {
