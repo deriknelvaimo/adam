@@ -11,6 +11,7 @@ import {
   type GeneticFileData
 } from "@shared/schema";
 import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion, type GeneticAnalysisRequest } from "./genetic-ai";
+import { localLLM } from "./local-llm";
 
 // Configure multer for file uploads
 const upload = multer({
@@ -360,19 +361,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update the model status to reflect Claude integration
+  // Check local model status
   app.get("/api/model-status", async (req, res) => {
     try {
+      const isLocalModelAvailable = await localLLM.checkHealth();
+      const availableModels = isLocalModelAvailable ? await localLLM.listModels() : [];
+      
       const models = [
-        { name: 'Claude-3.5-Sonnet', status: 'active' as const },
-        { name: 'Genetic Analysis AI', status: 'active' as const },
-        { name: 'Local Models', status: 'standby' as const }
+        { 
+          name: isLocalModelAvailable ? 'Llama3.1:8b (Local)' : 'Local Model Offline', 
+          status: isLocalModelAvailable ? 'active' as const : 'error' as const 
+        },
+        { 
+          name: 'Genetic Analysis Engine', 
+          status: isLocalModelAvailable ? 'active' as const : 'standby' as const 
+        },
+        { 
+          name: `Models Available: ${availableModels.length}`, 
+          status: availableModels.length > 0 ? 'active' as const : 'standby' as const 
+        }
       ];
       
       res.json(models);
     } catch (error) {
       console.error('Model status error:', error);
-      res.status(500).json({ message: "Failed to get model status" });
+      res.json([
+        { name: 'Local Model Connection', status: 'error' as const },
+        { name: 'Ollama Server', status: 'error' as const },
+        { name: 'Check: localhost:11434', status: 'standby' as const }
+      ]);
     }
   });
 
