@@ -24,7 +24,7 @@ interface AnalysisHistoryItem {
 
 export default function AnalysisHistory() {
   const [location] = useLocation();
-  const { data: historyData, isLoading, error } = useQuery({
+  const { data: historyData = [], isLoading, error } = useQuery<AnalysisHistoryItem[]>({
     queryKey: ['/api/analysis-history'],
   });
 
