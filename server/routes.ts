@@ -96,6 +96,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const globalIndex = i + batchIndex;
           
           try {
+            console.log(`Analyzing marker ${globalIndex + 1}/${fileData.markers.length}: ${marker.gene} (${marker.variant})`);
+            
             sendProgressUpdate(analysisId, {
               type: 'marker_progress',
               current: globalIndex + 1,
