@@ -41,8 +41,8 @@ function parseGeneticFile(buffer: Buffer, filename: string): GeneticFileData {
           gene: marker.gene,
           variant: marker.variant,
           genotype: marker.genotype,
-          chromosome: marker.chromosome || null,
-          position: marker.position ? parseInt(marker.position) : null
+          chromosome: marker.chromosome || undefined,
+          position: marker.position ? parseInt(marker.position) : undefined
         });
       }
     }
@@ -123,7 +123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               healthCategory: result.healthCategory,
               subcategory: result.subcategory,
               explanation: result.explanation,
-              recommendations: result.recommendations.join('; ')
+              recommendations: result.recommendations
             });
 
             sendProgressUpdate(analysisId, {
@@ -153,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               healthCategory: null,
               subcategory: null,
               explanation: "Local AI model is processing this variant",
-              recommendations: "Analysis pending"
+              recommendations: ["Analysis pending"]
             });
 
             return fallbackMarker;
@@ -345,8 +345,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           gene: m.gene,
           variant: m.variant,
           genotype: m.genotype,
-          chromosome: m.chromosome,
-          position: m.position
+          chromosome: m.chromosome || undefined,
+          position: m.position || undefined
         }))
       });
 
