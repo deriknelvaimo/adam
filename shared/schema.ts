@@ -131,3 +131,123 @@ export interface GeneticFileData {
     position?: number;
   }>;
 }
+
+// Enhanced health categories based on the comprehensive report
+export interface HealthCategory {
+  id: string;
+  name: string;
+  subcategories: string[];
+}
+
+export const HEALTH_CATEGORIES: HealthCategory[] = [
+  {
+    id: 'physical_activity_sport',
+    name: 'Physical Activity & Sport',
+    subcategories: [
+      'Altitude Training', 'Blood Flow and Circulation', 'Energy production during exercise',
+      'Fuel switching during exercise', 'Fuel mobilization in endurance activities', 'Injury Risk',
+      'Recovery: Inflammation', 'Recovery: Oxidative Stress', 'Lactate Threshold',
+      'Power/Strength (Anaerobic Predisposition)', 'Endurance (Aerobic Predisposition)',
+      'VO2 Max', 'Exercise Tolerance'
+    ]
+  },
+  {
+    id: 'weight_management',
+    name: 'Weight Management',
+    subcategories: [
+      'Glutathione Metabolism', 'Iron Deficiency Risk (Sport)', 'Iron Overload Susceptibility (Sport)',
+      'Antioxidants for Sport', 'Caffeine (Sport)', 'Eating Behaviours: Addictive Tendencies',
+      'Eating Behaviours: Emotional Eating', 'Eating Behaviours: Tendency to snack',
+      'Energy Expenditure (Metabolism)', 'Exercise responsiveness for weight loss',
+      'Hunger & Satiety', 'Obesity Risk', 'Pro-Inflammatory Response',
+      'Taste Perception: Bitter Taste', 'Taste Perception: Sweet Tooth',
+      'Taste Preference: Fat', 'Weight gain & Weight loss resistance'
+    ]
+  },
+  {
+    id: 'cellular_pathways',
+    name: 'Cellular Pathways',
+    subcategories: [
+      'Detoxification Phase 1', 'Detoxification Phase 2', 'Gut Health',
+      'Inflammation', 'Methylation', 'Oxidative Stress'
+    ]
+  },
+  {
+    id: 'dietary_sensitivities',
+    name: 'Dietary Sensitivities',
+    subcategories: [
+      'Alcohol', 'Caffeine (Health & Diet)', 'Lactose Intolerance',
+      'Salt', 'Non-Celiac Gluten'
+    ]
+  },
+  {
+    id: 'conversion_effectiveness',
+    name: 'Conversion Effectiveness',
+    subcategories: [
+      'Plant – Derived Omega 3', 'Plant – Derived Omega 6', 'Plant – Derived Vitamin A'
+    ]
+  },
+  {
+    id: 'nutrients_compounds',
+    name: 'Nutrients & Compounds',
+    subcategories: [
+      'Antioxidant Requirements', 'Choline Requirements', 'Collagen Requirements',
+      'Fibre Requirements', 'Glutathione Binding Capacity', 'Magnesium Requirements',
+      'Omega 3 Requirements', 'Vitamin B12 Requirements', 'Vitamin B9 (Folate) Requirements',
+      'Vitamin C Requirements', 'Vitamin D Requirements'
+    ]
+  },
+  {
+    id: 'immunity',
+    name: 'Immunity',
+    subcategories: [
+      'Iron Deficiency Risk', 'Iron Overload Susceptibility', 'Initial Response to Infection',
+      'General Immune Health', 'Tissue Repair and Recovery'
+    ]
+  },
+  {
+    id: 'cardiovascular_health',
+    name: 'Cardiovascular Health',
+    subcategories: [
+      'Blood Clotting', 'Blood Pressure', 'Cholesterol'
+    ]
+  },
+  {
+    id: 'biological_systems',
+    name: 'Biological Systems',
+    subcategories: [
+      'Bone Health', 'Joints', 'Thyroid Health', 'Type 2 Diabetes & Insulin Resistance Risk',
+      'Histamine Tolerance', 'Oestrogen & Testosterone Metabolism'
+    ]
+  },
+  {
+    id: 'healthy_ageing',
+    name: 'Healthy Ageing',
+    subcategories: [
+      'Cognitive Functioning & Memory', 'Mood Disorder & Behaviours',
+      'Cell Renewal & Hair Loss', 'Pigmentation & UV Protection',
+      'Skin Firmness & Elasticity', 'Glycation'
+    ]
+  },
+  {
+    id: 'genetic_risk_conditions',
+    name: 'Genetic Risk for Specific Conditions',
+    subcategories: [
+      'Addictive Tendencies', 'ADHD', "Alzheimer's Disease", 'Anxiety',
+      'COPD (Chronic Obstructive Pulmonary Disease)', 'Deep Vein Thrombosis (DVT)',
+      'Exaggerated Stress Response', 'Higher Dopamine Levels', 'Higher Oestrogen Levels',
+      'Intestinal Permeability ("Leaky Gut")', 'Lower Serotonin Levels',
+      'Lower Testosterone / DHEA Levels', 'Non-Alcoholic Fatty Liver Disease',
+      'Osteoarthritis', 'Osteopenia & Osteoporosis', 'Pernicious Anaemia (Vitamin B 12 Deficiency)',
+      'Sleep Disorders', 'Stroke'
+    ]
+  }
+];
+
+// Impact level mapping to match report symbols
+export const IMPACT_LEVELS = {
+  'HIGH': { symbol: '⬤', level: 5, description: 'VERY HIGH - HIGH PRIORITY FOR CHANGE' },
+  'MODERATE': { symbol: '▲', level: 3, description: 'MODERATE - MODERATE CONCERN' },
+  'LOW': { symbol: '★', level: 2, description: 'LOW - KEEP ON YOUR RADAR' },
+  'NO_IMPACT': { symbol: '◼', level: 1, description: 'VERY LOW - YOU\'RE WINNING' }
+};
