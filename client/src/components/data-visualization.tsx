@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,8 @@ interface DataVisualizationProps {
 }
 
 export default function DataVisualization({ analysisId }: DataVisualizationProps) {
+  const [viewMode, setViewMode] = useState<'chromosome' | 'heatmap'>('chromosome');
+  
   const { data: analysisData, isLoading } = useQuery({
     queryKey: ['/api/genetic-analysis', analysisId],
     enabled: !!analysisId,
@@ -64,10 +67,19 @@ export default function DataVisualization({ analysisId }: DataVisualizationProps
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900">Genetic Marker Visualization</h3>
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant={viewMode === 'chromosome' ? 'default' : 'outline'} 
+              size="sm"
+              onClick={() => setViewMode('chromosome')}
+            >
               Chromosome View
             </Button>
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
+            <Button 
+              variant={viewMode === 'heatmap' ? 'default' : 'outline'}
+              size="sm" 
+              className={viewMode === 'heatmap' ? "bg-blue-600 hover:bg-blue-700" : ""}
+              onClick={() => setViewMode('heatmap')}
+            >
               Risk Heatmap
             </Button>
           </div>
@@ -76,56 +88,114 @@ export default function DataVisualization({ analysisId }: DataVisualizationProps
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <div className="bg-gray-50 rounded-lg p-6">
-              <h4 className="text-md font-medium mb-4">Chromosome Distribution</h4>
-              <div className="space-y-3">
-                {Object.keys(chromosomeData).map((chr) => (
-                  <div key={chr} className="flex items-center space-x-4">
-                    <div className="w-20 text-sm font-medium text-gray-700">
-                      Chr {chr}
-                    </div>
-                    <div className="flex-1 flex space-x-2">
-                      {chromosomeData[chr].map((marker: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className={`h-8 px-3 rounded flex items-center text-xs font-medium text-white ${
-                            marker.impact === 'High' ? 'bg-red-500' :
-                            marker.impact === 'Moderate' ? 'bg-yellow-500' :
-                            marker.impact === 'Low' ? 'bg-green-500' :
-                            'bg-gray-400'
-                          }`}
-                          title={`${marker.gene} (${marker.variant}) - ${marker.impact} impact`}
-                        >
-                          {marker.gene}
+              {viewMode === 'chromosome' ? (
+                <>
+                  <h4 className="text-md font-medium mb-4">Chromosome Distribution</h4>
+                  <div className="space-y-3">
+                    {Object.keys(chromosomeData).map((chr) => (
+                      <div key={chr} className="flex items-center space-x-4">
+                        <div className="w-20 text-sm font-medium text-gray-700">
+                          Chr {chr}
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              
-              {markers && markers.length > 0 && (
-                <div className="mt-6">
-                  <h4 className="text-md font-medium mb-3">Genetic Marker Details</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {markers.map((marker: any, idx: number) => (
-                      <div key={idx} className="border rounded-lg p-3 bg-white">
-                        <div className="flex items-center justify-between">
-                          <span className="font-medium text-gray-900">{marker.gene}</span>
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            marker.impact === 'High' ? 'bg-red-100 text-red-800' :
-                            marker.impact === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {marker.impact}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {marker.variant} • Chr {marker.chromosome} • {marker.genotype}
+                        <div className="flex-1 flex space-x-2">
+                          {chromosomeData[chr].map((marker: any, idx: number) => (
+                            <div
+                              key={idx}
+                              className={`h-8 px-3 rounded flex items-center text-xs font-medium text-white ${
+                                marker.impact === 'High' ? 'bg-red-500' :
+                                marker.impact === 'Moderate' ? 'bg-yellow-500' :
+                                marker.impact === 'Low' ? 'bg-green-500' :
+                                'bg-gray-400'
+                              }`}
+                              title={`${marker.gene} (${marker.variant}) - ${marker.impact} impact`}
+                            >
+                              {marker.gene}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
                   </div>
-                </div>
+                  
+                  {markers && markers.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-md font-medium mb-3">Genetic Marker Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {markers.map((marker: any, idx: number) => (
+                          <div key={idx} className="border rounded-lg p-3 bg-white">
+                            <div className="flex items-center justify-between">
+                              <span className="font-medium text-gray-900">{marker.gene}</span>
+                              <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                marker.impact === 'High' ? 'bg-red-100 text-red-800' :
+                                marker.impact === 'Moderate' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {marker.impact}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-600 mt-1">
+                              {marker.variant} • Chr {marker.chromosome} • {marker.genotype}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h4 className="text-md font-medium mb-4">Risk Heatmap</h4>
+                  <div className="grid grid-cols-6 gap-2 mb-6">
+                    {Array.from({ length: 22 }, (_, i) => i + 1).concat(['X', 'Y']).map((chr) => {
+                      const chrMarkers = chromosomeData[chr.toString()] || [];
+                      const hasHighRisk = chrMarkers.some((m: any) => m.impact === 'High');
+                      const hasModerateRisk = chrMarkers.some((m: any) => m.impact === 'Moderate');
+                      const hasLowRisk = chrMarkers.some((m: any) => m.impact === 'Low');
+                      
+                      return (
+                        <div
+                          key={chr}
+                          className={`h-16 rounded-lg flex flex-col items-center justify-center text-xs font-medium ${
+                            hasHighRisk ? 'bg-red-500 text-white' :
+                            hasModerateRisk ? 'bg-yellow-500 text-white' :
+                            hasLowRisk ? 'bg-green-500 text-white' :
+                            'bg-gray-200 text-gray-600'
+                          }`}
+                          title={chrMarkers.length > 0 ? `${chrMarkers.length} marker(s)` : 'No markers'}
+                        >
+                          <div>{chr}</div>
+                          <div className="text-xs">{chrMarkers.length}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h5 className="text-sm font-medium text-gray-900">Risk Summary by Gene</h5>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      {markers?.map((marker: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className={`p-4 rounded-lg border-l-4 ${
+                            marker.impact === 'High' ? 'border-red-500 bg-red-50' :
+                            marker.impact === 'Moderate' ? 'border-yellow-500 bg-yellow-50' :
+                            'border-green-500 bg-green-50'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900">{marker.gene}</div>
+                          <div className="text-sm text-gray-600">{marker.variant}</div>
+                          <div className={`text-xs font-medium mt-1 ${
+                            marker.impact === 'High' ? 'text-red-800' :
+                            marker.impact === 'Moderate' ? 'text-yellow-800' :
+                            'text-green-800'
+                          }`}>
+                            {marker.impact} Impact
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
               )}
             </div>
           </div>
