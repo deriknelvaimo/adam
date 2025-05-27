@@ -5,7 +5,7 @@ dotenv.config();
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { WebSocketServer } from 'ws';
+
 
 // Environment variables with defaults
 const PORT = parseInt(process.env.PORT || "5000");
@@ -51,22 +51,7 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Set up WebSocket for real-time analysis progress on a different path
-  const wss = new WebSocketServer({ 
-    server,
-    path: '/progress'
-  });
-  
-  // Make WebSocket server available globally for progress updates
-  (global as any).progressWss = wss;
-
-  wss.on('connection', (ws) => {
-    console.log('🔌 Client connected for real-time updates');
-    
-    ws.on('close', () => {
-      console.log('🔌 Client disconnected');
-    });
-  });
+  // Remove WebSocket setup to avoid conflicts with Vite
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
