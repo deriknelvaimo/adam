@@ -139,7 +139,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: req.file.originalname,
         fileSize: req.file.size,
         uploadDate: new Date(),
-        totalMarkers,
+        totalMarkers: totalMarkersAnalyzed,
         highRiskMarkers: highRiskCount,
         moderateRiskMarkers: moderateRiskCount,
         processedMarkers: analyzedMarkers
@@ -149,7 +149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileName: req.file.originalname,
         fileSize: req.file.size,
         fileType: req.file.mimetype || 'application/octet-stream',
-        totalMarkers,
+        totalMarkers: totalMarkersAnalyzed,
         analyzedVariants: analyzedVariants.toString(),
         riskFactors,
         analysisData
@@ -189,7 +189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         analysisId: analysis.id,
         summary: {
-          totalMarkers,
+          totalMarkers: totalMarkersAnalyzed,
           analyzedVariants: `${analyzedVariants}%`,
           riskFactors: `${riskFactors} High`,
           lastAnalysis: 'Just now'
