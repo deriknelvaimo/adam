@@ -91,11 +91,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Analyze each marker using AI-powered genetic analysis
       const analyzedMarkers = [];
+      const totalMarkersCount = geneticData.markers.length;
       console.log('🤖 Starting genetic analysis with local model...');
       
-      for (const marker of geneticData.markers) {
+      // Send initial progress update
+      const wss = (global as any).progressWss;
+      if (wss) {
+        wss.clients.forEach((client: any) => {
+          if (client.readyState === 1) { // WebSocket.OPEN
+            client.send(JSON.stringify({
+              type: 'analysis_started',
+              totalMarkers: totalMarkersCount,
+              message: 'Starting genetic analysis with local model...'
+            }));
+          }
+        });
+      }
+      
+      for (let i = 0; i < geneticData.markers.length; i++) {
+        const marker = geneticData.markers[i];
         try {
           console.log(`🧬 Analyzing: ${marker.gene} ${marker.variant}`);
+          
+          // Send progress update
+          if (wss) {
+            wss.clients.forEach((client: any) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'marker_progress',
+                  current: i + 1,
+                  total: totalMarkers,
+                  gene: marker.gene,
+                  variant: marker.variant,
+                  message: `Analyzing ${marker.gene} ${marker.variant}...`
+                }));
+              }
+            });
+          }
+          
           const aiAnalysis = await analyzeGeneticMarker({
             gene: marker.gene,
             variant: marker.variant,
@@ -104,6 +137,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             position: marker.position
           });
           console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
+          
+          // Send completion update for this marker
+          if (wss) {
+            wss.clients.forEach((client: any) => {
+              if (client.readyState === 1) {
+                client.send(JSON.stringify({
+                  type: 'marker_complete',
+                  current: i + 1,
+                  total: totalMarkers,
+                  gene: marker.gene,
+                  impact: aiAnalysis.impact,
+                  message: `${marker.gene}: ${aiAnalysis.impact} impact`
+                }));
+              }
+            });
+          }
           
           analyzedMarkers.push({
             ...marker,
