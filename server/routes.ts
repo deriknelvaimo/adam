@@ -113,6 +113,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               position: marker.position
             });
 
+            // Ensure recommendations is always an array
+            let recommendations = [];
+            if (Array.isArray(result.recommendations)) {
+              recommendations = result.recommendations;
+            } else if (typeof result.recommendations === 'string') {
+              recommendations = [result.recommendations];
+            }
+
             const savedMarker = await storage.createGeneticMarker({
               analysisId: analysis.id,
               gene: result.gene,
@@ -126,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               healthCategory: result.healthCategory,
               subcategory: result.subcategory,
               explanation: result.explanation,
-              recommendations: result.recommendations
+              recommendations: recommendations
             });
 
             sendProgressUpdate(analysisId, {
