@@ -78,7 +78,7 @@ export default function AnalysisResults({ analysisId }: AnalysisResultsProps) {
           </div>
         </div>
         <p className="text-sm text-gray-600 mt-1">
-          Analysis of {analysis.fileName} ({analysis.totalMarkers.toLocaleString()} markers)
+          Analysis of {analysis?.fileName || 'genetic data'} ({analysis?.totalMarkers?.toLocaleString() || '0'} markers)
         </p>
       </div>
 
