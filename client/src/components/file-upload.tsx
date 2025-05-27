@@ -32,6 +32,12 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
       });
       setSelectedFile(null);
       onUploadComplete(data.analysisId, data.progressId);
+      
+      // Invalidate cache to refresh analysis overview after a brief delay
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['/api/analysis-overview'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/latest-analysis'] });
+      }, 1000);
     },
     onError: (error: Error) => {
       toast({
