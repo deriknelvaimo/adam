@@ -1,9 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
-
-// the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+import { localLLM } from './local-llm';
 
 export interface GeneticAnalysisRequest {
   gene: string;
@@ -56,32 +51,26 @@ Please provide a comprehensive analysis in JSON format with these exact keys:
 Focus on clinical accuracy and evidence-based interpretations.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 2000,
-      messages: [{ role: 'user', content: prompt }],
-      system: 'You are a board-certified clinical geneticist with expertise in genetic variant interpretation. Provide accurate, evidence-based genetic counseling based on current scientific literature and clinical guidelines.'
-    });
+    const systemPrompt = 'You are a board-certified clinical geneticist with expertise in genetic variant interpretation. Provide accurate, evidence-based genetic counseling based on current scientific literature and clinical guidelines.';
+    
+    const response = await localLLM.generateResponse(prompt, systemPrompt);
 
-    const content = response.content[0];
-    if (content.type === 'text') {
-      // Extract JSON from the response
-      const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const analysis = JSON.parse(jsonMatch[0]);
-        return {
-          gene: marker.gene,
-          variant: marker.variant,
-          genotype: marker.genotype,
-          impact: analysis.impact || 'Unknown',
-          clinicalSignificance: analysis.clinicalSignificance || 'VUS',
-          riskScore: Math.min(5, Math.max(1, analysis.riskScore || 3)),
-          healthCategory: analysis.healthCategory || 'General Health',
-          subcategory: analysis.subcategory || 'Genetic Variant',
-          explanation: analysis.explanation || 'Analysis pending',
-          recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
-        };
-      }
+    // Extract JSON from the response
+    const jsonMatch = response.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const analysis = JSON.parse(jsonMatch[0]);
+      return {
+        gene: marker.gene,
+        variant: marker.variant,
+        genotype: marker.genotype,
+        impact: analysis.impact || 'Unknown',
+        clinicalSignificance: analysis.clinicalSignificance || 'VUS',
+        riskScore: Math.min(5, Math.max(1, analysis.riskScore || 3)),
+        healthCategory: analysis.healthCategory || 'General Health',
+        subcategory: analysis.subcategory || 'Genetic Variant',
+        explanation: analysis.explanation || 'Analysis pending',
+        recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
+      };
     }
 
     // Fallback if JSON parsing fails
@@ -124,20 +113,14 @@ Please provide risk assessments grouped by health category in JSON format. Each 
 Focus on evidence-based interpretations and practical recommendations.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 3000,
-      messages: [{ role: 'user', content: prompt }],
-      system: 'You are a clinical geneticist providing comprehensive genetic risk assessments. Base your analysis on current scientific evidence and clinical guidelines.'
-    });
+    const systemPrompt = 'You are a clinical geneticist providing comprehensive genetic risk assessments. Base your analysis on current scientific evidence and clinical guidelines.';
+    
+    const response = await localLLM.generateResponse(prompt, systemPrompt);
 
-    const content = response.content[0];
-    if (content.type === 'text') {
-      const jsonMatch = content.text.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const assessments = JSON.parse(jsonMatch[0]);
-        return Array.isArray(assessments) ? assessments : [];
-      }
+    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      const assessments = JSON.parse(jsonMatch[0]);
+      return Array.isArray(assessments) ? assessments : [];
     }
 
     return [];
@@ -167,17 +150,10 @@ As a clinical geneticist, provide a detailed, accurate answer based on the genet
 Keep the response informative but accessible to patients.`;
 
   try {
-    const response = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
-      max_tokens: 1500,
-      messages: [{ role: 'user', content: prompt }],
-      system: 'You are a board-certified clinical geneticist providing genetic counseling. Give accurate, evidence-based answers while being sensitive to patient concerns and maintaining appropriate clinical boundaries.'
-    });
-
-    const content = response.content[0];
-    if (content.type === 'text') {
-      return content.text;
-    }
+    const systemPrompt = 'You are a board-certified clinical geneticist providing genetic counseling. Give accurate, evidence-based answers while being sensitive to patient concerns and maintaining appropriate clinical boundaries.';
+    
+    const response = await localLLM.generateResponse(prompt, systemPrompt);
+    return response;
 
     return 'I apologize, but I cannot provide an analysis at this time. Please try rephrasing your question.';
   } catch (error) {
