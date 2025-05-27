@@ -270,6 +270,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear test data endpoint
+  app.post("/api/clear-data", async (req, res) => {
+    try {
+      // For in-memory storage, we can reinitialize
+      if (storage instanceof MemStorage) {
+        // Reset all in-memory data
+        (storage as any).geneticAnalyses = new Map();
+        (storage as any).geneticMarkers = new Map();
+        (storage as any).riskAssessments = new Map();
+        (storage as any).chatMessages = new Map();
+        (storage as any).currentAnalysisId = 1;
+        (storage as any).currentMarkerId = 1;
+        (storage as any).currentRiskId = 1;
+        (storage as any).currentChatId = 1;
+      }
+      res.json({ message: "Data cleared successfully" });
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      res.status(500).json({ message: "Failed to clear data" });
+    }
+  });
+
   // Get analysis overview
   app.get("/api/analysis-overview", async (req, res) => {
     try {
@@ -285,10 +307,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const latestAnalysis = analyses[analyses.length - 1];
-      console.log('Debug - Latest analysis total markers:', latestAnalysis.totalMarkers);
+      
+      // Use the stored totalMarkers from analysis (which is correct as 3)
+      // Get markers to double-check the count
+      const markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
       
       res.json({
-        totalMarkers: latestAnalysis.totalMarkers,
+        totalMarkers: markers.length,
         analyzedVariants: latestAnalysis.analyzedVariants,
         riskFactors: `${latestAnalysis.riskFactors} High`,
         lastAnalysis: "Recently"
