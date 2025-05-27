@@ -2,6 +2,11 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Environment variables with defaults
+const PORT = parseInt(process.env.PORT || "5000");
+const HOST = process.env.HOST || "localhost";
+const NODE_ENV = process.env.NODE_ENV || "development";
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -50,21 +55,19 @@ app.use((req, res, next) => {
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
+  if (NODE_ENV === "development") {
     await setupVite(app, server);
   } else {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Serve the app with configurable host and port
+  // this serves both the API and the client
   server.listen({
-    port,
-    host: "0.0.0.0",
+    port: PORT,
+    host: HOST,
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Adam serving on ${HOST}:${PORT} (${NODE_ENV} mode)`);
   });
 })();
