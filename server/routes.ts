@@ -225,8 +225,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Clean up SSE connection
+      cleanupProgressConnection(analysisId);
+
       res.json({
         analysisId: analysis.id,
+        progressId: analysisId,
         summary: {
           totalMarkers: totalMarkersAnalyzed,
           analyzedVariants: `${analyzedVariants}%`,
