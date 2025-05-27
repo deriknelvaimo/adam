@@ -180,11 +180,12 @@ export default function AnalysisHistory() {
                         <Download className="h-4 w-4 mr-1" />
                         Export
                       </Button>
-                      <Link href={`/analysis/${analysis.id}`}>
-                        <Button size="sm">
-                          View Details
-                        </Button>
-                      </Link>
+                      <Button 
+                        size="sm"
+                        onClick={() => window.location.href = `/analysis/${analysis.id}`}
+                      >
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
