@@ -62,9 +62,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Upload and analyze genetic data
   app.post("/api/upload-genetic-data", upload.single('file'), async (req: Request, res: Response) => {
     try {
+      console.log('Upload request received');
       if (!req.file) {
+        console.log('No file in request');
         return res.status(400).json({ message: "No file uploaded" });
       }
+      console.log('File received:', req.file.originalname);
 
       const analysisId = Date.now().toString();
       const fileData = parseGeneticFile(req.file.buffer, req.file.originalname || 'unknown');
