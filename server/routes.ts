@@ -101,53 +101,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: `Starting analysis of ${totalMarkersCount} genetic markers`
       });
       
-      for (let i = 0; i < geneticData.markers.length; i++) {
-        const marker = geneticData.markers[i];
-        try {
-          console.log(`🧬 Analyzing: ${marker.gene} ${marker.variant}`);
-          
-          // Send progress update
-          sendProgressUpdate(analysisId, {
-            type: 'marker_progress',
-            current: i + 1,
-            total: totalMarkersCount,
-            gene: marker.gene,
-            message: `Analyzing ${marker.gene}...`
-          });
-          
-          const aiAnalysis = await analyzeGeneticMarker({
-            gene: marker.gene,
-            variant: marker.variant,
-            genotype: marker.genotype,
-            chromosome: marker.chromosome,
-            position: marker.position
-          });
-          console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
-          
-          // Send completion update for this marker
-          sendProgressUpdate(analysisId, {
-            type: 'marker_complete',
-            current: i + 1,
-            total: totalMarkersCount,
-            gene: marker.gene,
-            impact: aiAnalysis.impact,
-            message: `${marker.gene}: ${aiAnalysis.impact} impact`
-          });
-          
-          analyzedMarkers.push({
-            ...marker,
-            impact: aiAnalysis.impact,
-            clinicalSignificance: aiAnalysis.clinicalSignificance,
-            riskScore: aiAnalysis.riskScore,
-            healthCategory: aiAnalysis.healthCategory,
-            subcategory: aiAnalysis.subcategory,
-            explanation: aiAnalysis.explanation,
-            recommendations: aiAnalysis.recommendations
-          });
-        } catch (error) {
-          console.error(`Error analyzing marker ${marker.gene}:`, error);
-          continue;
-        }
+      // Process markers concurrently in batches for better performance
+      const BATCH_SIZE = 3; // Process 3 markers simultaneously
+      const batches = [];
+      
+      for (let i = 0; i < geneticData.markers.length; i += BATCH_SIZE) {
+        batches.push(geneticData.markers.slice(i, i + BATCH_SIZE));
+      }
+
+      let processedCount = 0;
+      
+      for (const batch of batches) {
+        // Process batch concurrently
+        const batchPromises = batch.map(async (marker, batchIndex) => {
+          const globalIndex = processedCount + batchIndex;
+          try {
+            console.log(`🧬 Analyzing (batch): ${marker.gene} ${marker.variant}`);
+            
+            // Send progress update
+            sendProgressUpdate(analysisId, {
+              type: 'marker_progress',
+              current: globalIndex + 1,
+              total: totalMarkersCount,
+              gene: marker.gene,
+              message: `Analyzing ${marker.gene}...`
+            });
+            
+            const aiAnalysis = await analyzeGeneticMarker({
+              gene: marker.gene,
+              variant: marker.variant,
+              genotype: marker.genotype,
+              chromosome: marker.chromosome,
+              position: marker.position
+            });
+            console.log(`✅ Analysis complete for ${marker.gene}:`, aiAnalysis.impact);
+            
+            // Send completion update for this marker
+            sendProgressUpdate(analysisId, {
+              type: 'marker_complete',
+              current: globalIndex + 1,
+              total: totalMarkersCount,
+              gene: marker.gene,
+              impact: aiAnalysis.impact,
+              message: `${marker.gene}: ${aiAnalysis.impact} impact`
+            });
+            
+            return {
+              ...marker,
+              impact: aiAnalysis.impact,
+              clinicalSignificance: aiAnalysis.clinicalSignificance,
+              riskScore: aiAnalysis.riskScore,
+              healthCategory: aiAnalysis.healthCategory,
+              subcategory: aiAnalysis.subcategory,
+              explanation: aiAnalysis.explanation,
+              recommendations: aiAnalysis.recommendations
+            };
+          } catch (error) {
+            console.error(`Error analyzing marker ${marker.gene}:`, error);
+            return null;
+          }
+        });
+
+        // Wait for current batch to complete
+        const batchResults = await Promise.all(batchPromises);
+        
+        // Add successful results to analyzed markers
+        batchResults.forEach(result => {
+          if (result) {
+            analyzedMarkers.push(result);
+          }
+        });
+        
+        processedCount += batch.length;
+        console.log(`🚀 Completed batch: ${processedCount}/${totalMarkersCount} markers processed`);
       }
 
       // Send analysis complete event
