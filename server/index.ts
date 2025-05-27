@@ -63,11 +63,7 @@ app.use((req, res, next) => {
 
   // Serve the app with configurable host and port
   // this serves both the API and the client
-  server.listen({
-    port: PORT,
-    host: HOST,
-    reusePort: true,
-  }, () => {
-    log(`Adam serving on ${HOST}:${PORT} (${NODE_ENV} mode)`);
+  server.listen(PORT, () => {
+    log(`Adam serving on http://localhost:${PORT} (${NODE_ENV} mode)`);
   });
 })();
