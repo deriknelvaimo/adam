@@ -7,6 +7,7 @@ import DataVisualization from "@/components/data-visualization";
 import QuickStats from "@/components/quick-stats";
 import ModelStatus from "@/components/model-status";
 import AnalysisProgress from "@/components/analysis-progress";
+import { User } from "lucide-react";
 
 export default function GeneticsDashboard() {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
@@ -64,7 +65,7 @@ export default function GeneticsDashboard() {
                 <i className="fas fa-bell text-lg"></i>
               </button>
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <i className="fas fa-user text-white text-sm"></i>
+                <User className="h-4 w-4 text-white" />
               </div>
             </div>
           </div>

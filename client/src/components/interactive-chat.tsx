@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Send, MessageSquare } from "lucide-react";
 
 interface InteractiveChatProps {
   analysisId: number | null;
@@ -100,7 +101,7 @@ export default function InteractiveChat({ analysisId }: InteractiveChatProps) {
     <Card>
       <div className="p-6 border-b border-gray-200">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <i className="fas fa-comments text-blue-600 mr-2"></i>
+          <MessageSquare className="h-5 w-5 text-blue-600 mr-2" />
           Ask Questions About Your Genetic Data
         </h3>
         <p className="text-sm text-gray-600 mt-1">
@@ -182,7 +183,7 @@ export default function InteractiveChat({ analysisId }: InteractiveChatProps) {
             disabled={chatMutation.isPending || !inputMessage.trim()}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            <i className="fas fa-paper-plane"></i>
+            <Send className="h-4 w-4" />
           </Button>
         </div>
 
