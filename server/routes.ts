@@ -158,6 +158,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Send analysis complete event
+      sendProgressUpdate(analysisId, {
+        type: 'analysis_complete',
+        total: totalMarkersCount,
+        analyzedCount: analyzedMarkers.length,
+        message: `Analysis complete! Processed ${analyzedMarkers.length} markers`
+      });
+
       // Calculate analysis statistics
       const totalMarkersAnalyzed = analyzedMarkers.length;
       const analyzedVariants = Math.round((totalMarkersAnalyzed / geneticData.markers.length) * 100);
