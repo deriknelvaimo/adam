@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface FileUploadProps {
-  onUploadComplete: (analysisId: number) => void;
+  onUploadComplete: (analysisId: number, progressId?: string) => void;
   onUploadStart?: () => void;
 }
 
@@ -31,7 +31,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
         description: `Successfully analyzed ${selectedFile?.name}. Found ${data.summary.totalMarkers} genetic markers.`,
       });
       setSelectedFile(null);
-      onUploadComplete(data.analysisId);
+      onUploadComplete(data.analysisId, data.progressId);
       queryClient.invalidateQueries({ queryKey: ['/api/analysis-overview'] });
       queryClient.invalidateQueries({ queryKey: ['/api/latest-analysis'] });
     },

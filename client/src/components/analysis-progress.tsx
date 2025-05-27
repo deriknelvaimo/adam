@@ -16,9 +16,10 @@ interface ProgressMessage {
 
 interface AnalysisProgressProps {
   isAnalyzing: boolean;
+  progressId?: string;
 }
 
-export default function AnalysisProgress({ isAnalyzing }: AnalysisProgressProps) {
+export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisProgressProps) {
   const [progress, setProgress] = useState(0);
   const [currentMessage, setCurrentMessage] = useState('');
   const [completedMarkers, setCompletedMarkers] = useState<Array<{gene: string, impact: string}>>([]);

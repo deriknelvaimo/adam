@@ -11,6 +11,7 @@ import AnalysisProgress from "@/components/analysis-progress";
 export default function GeneticsDashboard() {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [progressId, setProgressId] = useState<string | null>(null);
 
   const { data: latestAnalysis } = useQuery({
     queryKey: ['/api/latest-analysis'],
@@ -20,8 +21,9 @@ export default function GeneticsDashboard() {
   // Use latest analysis if no specific analysis is selected
   const analysisId = currentAnalysisId || latestAnalysis?.id || null;
 
-  const handleUploadComplete = (analysisId: number) => {
+  const handleUploadComplete = (analysisId: number, progressId?: string) => {
     setCurrentAnalysisId(analysisId);
+    setProgressId(progressId || null);
     setIsAnalyzing(false);
   };
 
@@ -72,7 +74,7 @@ export default function GeneticsDashboard() {
           {/* Left Column: Upload and Quick Stats */}
           <div className="lg:col-span-1 space-y-6">
             <FileUpload onUploadComplete={handleUploadComplete} onUploadStart={handleUploadStart} />
-            <AnalysisProgress isAnalyzing={isAnalyzing} />
+            <AnalysisProgress isAnalyzing={isAnalyzing} progressId={progressId} />
             <QuickStats />
             <ModelStatus />
           </div>
