@@ -207,7 +207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileSize: req.file.size,
         fileType: req.file.mimetype || 'application/octet-stream',
         totalMarkers: totalMarkersAnalyzed,
-        analyzedVariants: analyzedVariants.toString(),
+        analyzedVariants: `${analyzedVariants}%`,
         riskFactors,
         analysisData
       });
@@ -237,8 +237,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const assessment of aiRiskAssessments) {
           await storage.createRiskAssessment({
             analysisId: analysis.id,
-            category: assessment.category,
-            riskLevel: assessment.riskLevel,
+            condition: assessment.category,
+            riskLevel: assessment.riskLevel.toString(),
+            percentage: assessment.riskLevel.toString(),
             description: assessment.description
           });
         }

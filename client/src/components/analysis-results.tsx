@@ -61,7 +61,7 @@ export default function AnalysisResults({ analysisId }: AnalysisResultsProps) {
     );
   }
 
-  const { analysis, markers, riskAssessments } = analysisData;
+  const { analysis, markers, riskAssessments } = analysisData || { analysis: null, markers: [], riskAssessments: [] };
 
   return (
     <Card>
