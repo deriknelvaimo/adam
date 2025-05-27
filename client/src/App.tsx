@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import GeneticsDashboard from "@/pages/genetics-dashboard";
 import AnalysisHistory from "@/pages/analysis-history";
+import AnalysisDetails from "@/pages/analysis-details";
 import NotFound from "@/pages/not-found";
 
 function Router() {
