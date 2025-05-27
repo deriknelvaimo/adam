@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import FileUpload from "@/components/file-upload";
 import AnalysisResults from "@/components/analysis-results";
 import InteractiveChat from "@/components/interactive-chat";
@@ -13,6 +14,7 @@ export default function GeneticsDashboard() {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [progressId, setProgressId] = useState<string | null>(null);
+  const [location] = useLocation();
 
   const { data: latestAnalysis } = useQuery({
     queryKey: ['/api/latest-analysis'],
@@ -46,15 +48,19 @@ export default function GeneticsDashboard() {
                 <span className="text-xl font-bold text-gray-900">Adam</span>
               </div>
               <nav className="hidden md:ml-8 md:flex md:space-x-8">
-                <a href="#" className="text-blue-600 border-b-2 border-blue-600 px-1 pt-1 text-sm font-medium">
+                <Link href="/" className={`px-1 pt-1 text-sm font-medium ${
+                  location === '/' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}>
                   Analysis
-                </a>
+                </Link>
                 <a href="#" className="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">
                   Reports
                 </a>
-                <a href="#" className="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">
+                <Link href="/history" className={`px-1 pt-1 text-sm font-medium ${
+                  location === '/history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}>
                   History
-                </a>
+                </Link>
                 <a href="#" className="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">
                   Settings
                 </a>
