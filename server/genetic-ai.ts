@@ -51,44 +51,70 @@ Please provide a comprehensive analysis in JSON format with these exact keys:
 Focus on clinical accuracy and evidence-based interpretations.`;
 
   try {
-    const systemPrompt = 'You are a board-certified clinical geneticist with expertise in genetic variant interpretation. Provide accurate, evidence-based genetic counseling based on current scientific literature and clinical guidelines.';
+    // Check if local LLM is available, otherwise provide structured fallback
+    const isLocalLLMAvailable = await localLLM.checkHealth();
     
-    const response = await localLLM.generateResponse(prompt, systemPrompt);
+    if (isLocalLLMAvailable) {
+      const systemPrompt = 'You are a board-certified clinical geneticist with expertise in genetic variant interpretation. Provide accurate, evidence-based genetic counseling based on current scientific literature and clinical guidelines.';
+      
+      const response = await localLLM.generateResponse(prompt, systemPrompt);
 
-    // Extract JSON from the response
-    const jsonMatch = response.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const analysis = JSON.parse(jsonMatch[0]);
-      return {
-        gene: marker.gene,
-        variant: marker.variant,
-        genotype: marker.genotype,
-        impact: analysis.impact || 'Unknown',
-        clinicalSignificance: analysis.clinicalSignificance || 'VUS',
-        riskScore: Math.min(5, Math.max(1, analysis.riskScore || 3)),
-        healthCategory: analysis.healthCategory || 'General Health',
-        subcategory: analysis.subcategory || 'Genetic Variant',
-        explanation: analysis.explanation || 'Analysis pending',
-        recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
-      };
+      // Extract JSON from the response
+      const jsonMatch = response.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const analysis = JSON.parse(jsonMatch[0]);
+        return {
+          gene: marker.gene,
+          variant: marker.variant,
+          genotype: marker.genotype,
+          impact: analysis.impact || 'Unknown',
+          clinicalSignificance: analysis.clinicalSignificance || 'VUS',
+          riskScore: Math.min(5, Math.max(1, analysis.riskScore || 3)),
+          healthCategory: analysis.healthCategory || 'General Health',
+          subcategory: analysis.subcategory || 'Genetic Variant',
+          explanation: analysis.explanation || 'Analysis pending',
+          recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations : []
+        };
+      }
     }
 
-    // Fallback if JSON parsing fails
+    // When local model is not available, show clear message
     return {
       gene: marker.gene,
       variant: marker.variant,
       genotype: marker.genotype,
-      impact: 'Unknown',
-      clinicalSignificance: 'VUS',
-      riskScore: 3,
-      healthCategory: 'General Health',
-      subcategory: 'Genetic Variant',
-      explanation: 'Analysis could not be completed',
-      recommendations: []
+      impact: 'Pending Local Analysis',
+      clinicalSignificance: 'Local Model Required',
+      riskScore: 0,
+      healthCategory: 'System Status',
+      subcategory: 'Model Configuration',
+      explanation: `Local genetic analysis model not connected. To analyze ${marker.gene} ${marker.variant} (${marker.genotype}), please start your local LLM server.`,
+      recommendations: [
+        'Install Ollama on your local machine',
+        'Pull a biomedical model: ollama pull llama3.1:8b',
+        'Start the local server: ollama serve',
+        'Upload your genetic data again for analysis'
+      ]
     };
   } catch (error) {
     console.error('Error analyzing genetic marker:', error);
-    throw new Error('Failed to analyze genetic marker');
+    
+    return {
+      gene: marker.gene,
+      variant: marker.variant,
+      genotype: marker.genotype,
+      impact: 'Analysis Error',
+      clinicalSignificance: 'Connection Failed',
+      riskScore: 0,
+      healthCategory: 'System Status',
+      subcategory: 'Model Connection',
+      explanation: `Unable to analyze ${marker.gene} ${marker.variant}. Local model connection failed.`,
+      recommendations: [
+        'Check local model server status',
+        'Verify Ollama is running on localhost:11434',
+        'Restart the local model server if needed'
+      ]
+    };
   }
 }
 
@@ -154,8 +180,6 @@ Keep the response informative but accessible to patients.`;
     
     const response = await localLLM.generateResponse(prompt, systemPrompt);
     return response;
-
-    return 'I apologize, but I cannot provide an analysis at this time. Please try rephrasing your question.';
   } catch (error) {
     console.error('Error answering genetic question:', error);
     throw new Error('Failed to process genetic question');
