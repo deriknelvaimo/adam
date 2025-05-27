@@ -38,7 +38,7 @@ export default function AnalysisProgress({ isAnalyzing }: AnalysisProgressProps)
 
     // Connect to WebSocket for real-time updates
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}`);
+    const ws = new WebSocket(`${protocol}//${window.location.host}/progress`);
 
     ws.onopen = () => {
       console.log('🔌 Connected to analysis progress stream');

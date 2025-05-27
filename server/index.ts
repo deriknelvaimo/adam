@@ -51,8 +51,11 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  // Set up WebSocket for real-time analysis progress
-  const wss = new WebSocketServer({ server });
+  // Set up WebSocket for real-time analysis progress on a different path
+  const wss = new WebSocketServer({ 
+    server,
+    path: '/progress'
+  });
   
   // Make WebSocket server available globally for progress updates
   (global as any).progressWss = wss;
