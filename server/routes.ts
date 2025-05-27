@@ -285,10 +285,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const latestAnalysis = analyses[analyses.length - 1];
-      const totalMarkers = latestAnalysis.totalMarkers;
+      console.log('Debug - Latest analysis total markers:', latestAnalysis.totalMarkers);
       
       res.json({
-        totalMarkers,
+        totalMarkers: latestAnalysis.totalMarkers,
         analyzedVariants: latestAnalysis.analyzedVariants,
         riskFactors: `${latestAnalysis.riskFactors} High`,
         lastAnalysis: "Recently"
