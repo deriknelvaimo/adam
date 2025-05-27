@@ -1,15 +1,18 @@
+// Load environment variables FIRST, before any other imports
+import dotenv from "dotenv";
+dotenv.config();
+
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import dotenv from "dotenv";
-
-// Load environment variables from .env file
-dotenv.config();
 
 // Environment variables with defaults
 const PORT = parseInt(process.env.PORT || "5000");
 const HOST = process.env.HOST || "localhost";
 const NODE_ENV = process.env.NODE_ENV || "development";
+
+// Debug environment loading
+console.log('Environment loaded - PORT:', PORT, 'HOST:', HOST, 'API Key present:', process.env.ANTHROPIC_API_KEY ? 'YES' : 'NO');
 
 const app = express();
 app.use(express.json());
