@@ -37,7 +37,7 @@ export const geneticMarkers = pgTable("genetic_markers", {
   healthCategory: text("health_category"),
   subcategory: text("subcategory"),
   explanation: text("explanation"),
-  recommendations: text("recommendations").array(),
+  recommendations: text("recommendations"),
 });
 
 export const riskAssessments = pgTable("risk_assessments", {

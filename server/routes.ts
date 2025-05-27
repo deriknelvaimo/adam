@@ -113,12 +113,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
               position: marker.position
             });
 
-            // Ensure recommendations is always an array
-            let recommendations = [];
+            // Convert recommendations to text format for database storage
+            let recommendations = '';
             if (Array.isArray(result.recommendations)) {
-              recommendations = result.recommendations;
+              recommendations = result.recommendations.join('; ');
             } else if (typeof result.recommendations === 'string') {
-              recommendations = [result.recommendations];
+              recommendations = result.recommendations;
+            } else if (result.recommendations) {
+              recommendations = String(result.recommendations);
             }
 
             const savedMarker = await storage.createGeneticMarker({
