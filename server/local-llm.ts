@@ -30,13 +30,19 @@ export class LocalLLM {
         }
       };
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
       const response = await fetch(`${this.config.baseUrl}/api/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`Local LLM API error: ${response.status} ${response.statusText}`);
@@ -46,6 +52,9 @@ export class LocalLLM {
       return data.response;
     } catch (error) {
       console.error('Local LLM error:', error);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Local model analysis timeout (exceeded 2 minutes). The model may need more time for complex genetic variants.`);
+      }
       throw new Error(`Failed to get response from local model: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
