@@ -11,8 +11,7 @@ const PORT = parseInt(process.env.PORT || "5000");
 const HOST = process.env.HOST || "localhost";
 const NODE_ENV = process.env.NODE_ENV || "development";
 
-// Debug environment loading
-console.log('Environment loaded - PORT:', PORT, 'HOST:', HOST, 'API Key present:', process.env.ANTHROPIC_API_KEY ? 'YES' : 'NO');
+// Environment successfully loaded
 
 const app = express();
 app.use(express.json());

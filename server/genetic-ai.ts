@@ -1,12 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
-console.log('Environment variables debug:');
-console.log('- PORT:', process.env.PORT);
-console.log('- HOST:', process.env.HOST);
-console.log('- ANTHROPIC_API_KEY present:', process.env.ANTHROPIC_API_KEY ? 'YES' : 'NO');
-console.log('- ANTHROPIC_API_KEY length:', process.env.ANTHROPIC_API_KEY?.length || 0);
-
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
