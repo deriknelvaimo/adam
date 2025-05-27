@@ -326,7 +326,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const markers = await storage.getGeneticMarkersByAnalysisId(analysisId);
-        res.json({ ...analysis, markers });
+        const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(analysisId);
+        res.json({ 
+          analysis, 
+          markers, 
+          riskAssessments 
+        });
       } else {
         // Return latest analysis if no ID provided
         const latestAnalysis = analyses[analyses.length - 1];
@@ -335,7 +340,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         const markers = await storage.getGeneticMarkersByAnalysisId(latestAnalysis.id);
-        res.json({ ...latestAnalysis, markers });
+        const riskAssessments = await storage.getRiskAssessmentsByAnalysisId(latestAnalysis.id);
+        res.json({ 
+          analysis: latestAnalysis, 
+          markers, 
+          riskAssessments 
+        });
       }
     } catch (error) {
       console.error('Error fetching genetic analysis:', error);
