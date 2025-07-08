@@ -7,7 +7,7 @@ import { apiRequest } from "@/lib/queryClient";
 
 interface FileUploadProps {
   onUploadComplete: (analysisId: number, progressId?: string) => void;
-  onUploadStart?: () => void;
+  onUploadStart?: (progressId: string) => void;
 }
 
 export default function FileUpload({ onUploadComplete, onUploadStart }: FileUploadProps) {
@@ -18,12 +18,12 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      
+    mutationFn: async (formData: FormData) => {
       const response = await apiRequest('POST', '/api/upload-genetic-data', formData);
-      return response.json();
+      const data = await response.json();
+      
+      // Return data with the progress ID
+      return { ...data, progressId: formData.get('progressId') };
     },
     onSuccess: (data) => {
       toast({
@@ -109,8 +109,17 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
 
   const handleUpload = () => {
     if (selectedFile) {
-      onUploadStart?.(); // Trigger progress tracking
-      uploadMutation.mutate(selectedFile);
+      // Generate progress ID and start progress tracking
+      const progressId = Date.now().toString();
+      onUploadStart?.(progressId);
+      
+      // Create form data with the same progressId
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      formData.append('progressId', progressId);
+      
+      // Use the mutation with the form data
+      uploadMutation.mutate(formData as any);
     }
   };
 

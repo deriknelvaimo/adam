@@ -30,10 +30,10 @@ export default function GeneticsDashboard() {
     setIsAnalyzing(false);
   };
 
-  const handleUploadStart = () => {
+  const handleUploadStart = (progressId?: string) => {
     setIsAnalyzing(true);
-    // Generate progress ID when analysis starts
-    setProgressId(Date.now().toString());
+    // Use provided progressId or generate one
+    setProgressId(progressId || Date.now().toString());
   };
 
   return (

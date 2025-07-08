@@ -72,7 +72,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log('File received:', req.file.originalname);
 
-      const analysisId = Date.now().toString();
+      // Use provided progressId or generate one
+      const progressId = req.body.progressId || Date.now().toString();
+      console.log('Using progress ID:', progressId);
+      
       const fileData = parseGeneticFile(req.file.buffer, req.file.originalname || 'unknown');
       
       // Limit analysis to prevent timeouts - max 50 markers for initial testing
@@ -83,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Limiting analysis to ${maxMarkers} markers out of ${fileData.markers.length} total`);
       }
       
-      sendProgressUpdate(analysisId, {
+      sendProgressUpdate(progressId, {
         type: 'analysis_started',
         message: `File uploaded: ${req.file.originalname}. Analyzing ${markersToAnalyze.length} genetic markers (${fileData.markers.length} total found).`,
         total: markersToAnalyze.length
@@ -110,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             console.log(`Analyzing marker ${globalIndex + 1}/${markersToAnalyze.length}: ${marker.gene} (${marker.variant})`);
             
-            sendProgressUpdate(analysisId, {
+            sendProgressUpdate(progressId, {
               type: 'marker_progress',
               current: globalIndex + 1,
               total: markersToAnalyze.length,
@@ -153,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               recommendations: recommendations
             });
 
-            sendProgressUpdate(analysisId, {
+            sendProgressUpdate(progressId, {
               type: 'marker_complete',
               current: globalIndex + 1,
               total: markersToAnalyze.length,
@@ -234,17 +237,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .where(eq(geneticAnalyses.id, analysis.id));
 
-      sendProgressUpdate(analysisId, {
+      sendProgressUpdate(progressId, {
         type: 'analysis_complete',
         totalMarkers: totalMarkersAnalyzed,
         message: `Analysis complete! Processed ${totalMarkersAnalyzed} genetic markers.`
       });
 
-      cleanupProgressConnection(analysisId);
+      cleanupProgressConnection(progressId);
 
       res.json({
         analysisId: analysis.id,
-        progressId: analysisId,
+        progressId: progressId,
         summary: {
           totalMarkers: totalMarkersAnalyzed,
           analyzedVariants: `${analyzedVariants}%`,
