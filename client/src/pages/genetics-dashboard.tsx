@@ -43,16 +43,35 @@ export default function GeneticsDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Adam</h1>
-              <span className="ml-2 text-sm text-gray-500">Genetic Analysis Platform</span>
+              <div className="flex-shrink-0 flex items-center">
+                <i className="fas fa-dna text-2xl text-blue-600 mr-3"></i>
+                <span className="text-xl font-bold text-gray-900">Adam</span>
+              </div>
+              <nav className="hidden md:ml-8 md:flex md:space-x-8">
+                <Link href="/" className={`px-1 pt-1 text-sm font-medium ${
+                  location === '/' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                  Analysis
+                </Link>
+                <a href="#" className="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">
+                  Reports
+                </a>
+                <Link href="/history" className={`px-1 pt-1 text-sm font-medium ${
+                  location === '/history' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                  History
+                </Link>
+                <a href="#" className="text-gray-500 hover:text-gray-700 px-1 pt-1 text-sm font-medium">
+                  Settings
+                </a>
+              </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center text-sm text-gray-500">
-                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
-                Local AI Model
-              </div>
-              <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-gray-600" />
+              <button className="text-gray-500 hover:text-gray-700">
+                <i className="fas fa-bell text-lg"></i>
+              </button>
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <User className="h-4 w-4 text-white" />
               </div>
             </div>
           </div>

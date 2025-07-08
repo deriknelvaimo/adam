@@ -4,7 +4,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 
 interface ProgressMessage {
-  type: 'analysis_started' | 'marker_progress' | 'marker_complete' | 'analysis_complete';
+  type: 'analysis_started' | 'marker_progress' | 'marker_complete' | 'analysis_complete' | 'connected';
   current?: number;
   total?: number;
   totalMarkers?: number;
@@ -49,27 +49,31 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
     // Connect to Server-Sent Events for real-time progress
     const connectToProgress = () => {
       try {
+        console.log('Attempting to connect to progress stream:', `/api/progress/${progressId}`);
         const eventSource = new EventSource(`/api/progress/${progressId}`);
         eventSourceRef.current = eventSource;
 
         eventSource.onopen = () => {
-          console.log('Progress connection established');
+          console.log('✅ Progress connection established successfully');
           setIsConnected(true);
         };
 
         eventSource.onmessage = (event) => {
           try {
+            console.log('📨 Received progress message:', event.data);
             const data: ProgressMessage = JSON.parse(event.data);
-            console.log('Progress update:', data);
+            console.log('📊 Parsed progress data:', data);
 
             switch (data.type) {
               case 'analysis_started':
+                console.log('🚀 Analysis started:', data.message);
                 setCurrentMessage(data.message);
                 setTotal(data.total || 0);
                 setProgress(5);
                 break;
 
               case 'marker_progress':
+                console.log('🔬 Marker progress:', data.current, '/', data.total);
                 setCurrentMessage(data.message);
                 setCurrent(data.current || 0);
                 if (data.total) {
@@ -79,6 +83,7 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
                 break;
 
               case 'marker_complete':
+                console.log('✅ Marker complete:', data.gene, data.impact);
                 setCurrent(data.current || 0);
                 if (data.gene && data.impact) {
                   setCompletedMarkers(prev => [...prev, { gene: data.gene!, impact: data.impact! }]);
@@ -90,23 +95,33 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
                 break;
 
               case 'analysis_complete':
+                console.log('🎉 Analysis complete!');
                 setProgress(100);
                 setCurrentMessage(data.message);
                 setIsConnected(false);
                 eventSource.close();
                 break;
+
+              case 'connected':
+                console.log('🔗 SSE connection confirmed');
+                break;
+
+              default:
+                console.log('❓ Unknown progress type:', data.type);
             }
           } catch (error) {
-            console.error('Error parsing progress message:', error);
+            console.error('❌ Error parsing progress message:', error);
+            console.error('Raw message:', event.data);
           }
         };
 
         eventSource.onerror = (error) => {
-          console.error('Progress connection error:', error);
+          console.error('❌ Progress connection error:', error);
           setIsConnected(false);
           eventSource.close();
           
           // Fallback to simulated progress if connection fails
+          console.log('🔄 Falling back to simulated progress');
           setCurrentMessage('Genetic analysis in progress... (offline mode)');
           setProgress(10);
           
@@ -121,8 +136,9 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
         };
 
       } catch (error) {
-        console.error('Failed to connect to progress stream:', error);
+        console.error('❌ Failed to connect to progress stream:', error);
         // Fallback to simulated progress
+        console.log('🔄 Using fallback simulated progress');
         setCurrentMessage('Genetic analysis in progress... (offline mode)');
         setProgress(10);
         
