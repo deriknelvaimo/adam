@@ -2,14 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import RiskAssessment from "@/components/risk-assessment";
 import GeneticMarkersTable from "@/components/genetic-markers-table";
 
 interface AnalysisResultsProps {
   analysisId: number | null;
+  isAnalyzing?: boolean;
 }
 
-export default function AnalysisResults({ analysisId }: AnalysisResultsProps) {
+export default function AnalysisResults({ analysisId, isAnalyzing = false }: AnalysisResultsProps) {
   const { data: analysisData, isLoading } = useQuery({
     queryKey: ['/api/genetic-analysis', analysisId],
     enabled: !!analysisId,
@@ -23,6 +26,35 @@ export default function AnalysisResults({ analysisId }: AnalysisResultsProps) {
             <i className="fas fa-dna text-4xl text-gray-400 mb-4"></i>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No Analysis Available</h3>
             <p className="text-sm text-gray-600">Upload your genetic data to get started with analysis</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (isAnalyzing) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="text-center py-8">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Analysis in Progress</h3>
+            <p className="text-sm text-gray-600 mb-4">Your genetic data is being analyzed by our local AI model</p>
+            
+            <div className="max-w-md mx-auto space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span>Processing genetic markers...</span>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                  Live
+                </Badge>
+              </div>
+              <Progress value={45} className="w-full" />
+              <p className="text-xs text-gray-500">
+                This may take a few minutes depending on the number of markers
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -61,7 +93,7 @@ export default function AnalysisResults({ analysisId }: AnalysisResultsProps) {
     );
   }
 
-  const { analysis, markers, riskAssessments } = analysisData || { analysis: null, markers: [], riskAssessments: [] };
+  const { analysis, markers, riskAssessments } = (analysisData as any) || { analysis: null, markers: [], riskAssessments: [] };
 
   return (
     <Card>

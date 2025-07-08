@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
@@ -25,35 +25,128 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
   const [completedMarkers, setCompletedMarkers] = useState<Array<{gene: string, impact: string}>>([]);
   const [total, setTotal] = useState(0);
   const [current, setCurrent] = useState(0);
+  const [isConnected, setIsConnected] = useState(false);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
-    if (!isAnalyzing) {
+    if (!isAnalyzing || !progressId) {
       // Reset when not analyzing
       setProgress(0);
       setCurrentMessage('');
       setCompletedMarkers([]);
       setTotal(0);
       setCurrent(0);
+      setIsConnected(false);
+      
+      // Close existing connection
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
       return;
     }
 
-    // For now, simulate progress since WebSocket has connection issues
-    // The genetic analysis is working perfectly, just the real-time display needs fixing
-    if (isAnalyzing) {
-      setCurrentMessage('Genetic analysis in progress...');
-      setProgress(10);
-      
-      // Show a simple progress indicator while analysis runs
-      const interval = setInterval(() => {
-        setProgress(prev => {
-          if (prev < 90) return prev + 5;
-          return prev;
-        });
-      }, 2000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isAnalyzing]);
+    // Connect to Server-Sent Events for real-time progress
+    const connectToProgress = () => {
+      try {
+        const eventSource = new EventSource(`/api/progress/${progressId}`);
+        eventSourceRef.current = eventSource;
+
+        eventSource.onopen = () => {
+          console.log('Progress connection established');
+          setIsConnected(true);
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data: ProgressMessage = JSON.parse(event.data);
+            console.log('Progress update:', data);
+
+            switch (data.type) {
+              case 'analysis_started':
+                setCurrentMessage(data.message);
+                setTotal(data.total || 0);
+                setProgress(5);
+                break;
+
+              case 'marker_progress':
+                setCurrentMessage(data.message);
+                setCurrent(data.current || 0);
+                if (data.total) {
+                  const progressPercent = Math.round(((data.current || 0) / data.total) * 90) + 5;
+                  setProgress(progressPercent);
+                }
+                break;
+
+              case 'marker_complete':
+                setCurrent(data.current || 0);
+                if (data.gene && data.impact) {
+                  setCompletedMarkers(prev => [...prev, { gene: data.gene!, impact: data.impact! }]);
+                }
+                if (data.total) {
+                  const progressPercent = Math.round(((data.current || 0) / data.total) * 90) + 5;
+                  setProgress(progressPercent);
+                }
+                break;
+
+              case 'analysis_complete':
+                setProgress(100);
+                setCurrentMessage(data.message);
+                setIsConnected(false);
+                eventSource.close();
+                break;
+            }
+          } catch (error) {
+            console.error('Error parsing progress message:', error);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.error('Progress connection error:', error);
+          setIsConnected(false);
+          eventSource.close();
+          
+          // Fallback to simulated progress if connection fails
+          setCurrentMessage('Genetic analysis in progress... (offline mode)');
+          setProgress(10);
+          
+          const interval = setInterval(() => {
+            setProgress(prev => {
+              if (prev < 90) return prev + 2;
+              return prev;
+            });
+          }, 3000);
+          
+          return () => clearInterval(interval);
+        };
+
+      } catch (error) {
+        console.error('Failed to connect to progress stream:', error);
+        // Fallback to simulated progress
+        setCurrentMessage('Genetic analysis in progress... (offline mode)');
+        setProgress(10);
+        
+        const interval = setInterval(() => {
+          setProgress(prev => {
+            if (prev < 90) return prev + 2;
+            return prev;
+          });
+        }, 3000);
+        
+        return () => clearInterval(interval);
+      }
+    };
+
+    connectToProgress();
+
+    // Cleanup function
+    return () => {
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [isAnalyzing, progressId]);
 
   if (!isAnalyzing && completedMarkers.length === 0) {
     return null;
@@ -82,8 +175,8 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
         <CardTitle className="flex items-center gap-2">
           🧬 Real-time Genetic Analysis
           {isAnalyzing && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              Processing...
+            <Badge variant="outline" className={isConnected ? "bg-green-50 text-green-700" : "bg-blue-50 text-blue-700"}>
+              {isConnected ? "Live" : "Processing..."}
             </Badge>
           )}
         </CardTitle>
@@ -96,12 +189,20 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
               <span>{Math.round(progress)}%</span>
             </div>
             <Progress value={progress} className="w-full" />
+            <div className="text-xs text-gray-500">
+              {isConnected ? "Live updates enabled" : "Offline mode - estimated progress"}
+            </div>
           </div>
         )}
         
         {currentMessage && (
           <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
-            {currentMessage}
+            <div className="flex items-center gap-2">
+              {isAnalyzing && (
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              )}
+              {currentMessage}
+            </div>
           </div>
         )}
         
@@ -118,6 +219,12 @@ export default function AnalysisProgress({ isAnalyzing, progressId }: AnalysisPr
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {progress === 100 && (
+          <div className="text-sm text-green-600 bg-green-50 p-3 rounded-md">
+            ✅ Analysis complete! Check the results below.
           </div>
         )}
       </CardContent>

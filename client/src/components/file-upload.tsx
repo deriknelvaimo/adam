@@ -28,7 +28,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
     onSuccess: (data) => {
       toast({
         title: "Analysis Started",
-        description: `Processing ${selectedFile?.name} with ${data.totalMarkers} genetic markers.`,
+        description: `Processing ${selectedFile?.name} with ${data.summary?.totalMarkers || 'unknown'} genetic markers.`,
       });
       setSelectedFile(null);
       onUploadComplete(data.analysisId, data.progressId);
@@ -109,6 +109,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
 
   const handleUpload = () => {
     if (selectedFile) {
+      onUploadStart?.(); // Trigger progress tracking
       uploadMutation.mutate(selectedFile);
     }
   };
@@ -154,7 +155,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
                 {uploadMutation.isPending ? (
                   <>
                     <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Analyzing...
+                    Starting Analysis...
                   </>
                 ) : (
                   'Start Analysis'
@@ -187,9 +188,9 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
           <div className="flex items-start">
             <i className="fas fa-info-circle text-blue-600 mt-0.5 mr-2"></i>
             <div>
-              <p className="text-sm font-medium text-blue-900">Supported Format</p>
+              <p className="text-sm font-medium text-blue-900">Analysis Progress</p>
               <p className="text-xs text-blue-700 mt-1">
-                Upload genetic markers in Section 14 format or standard VCF files
+                Real-time progress tracking will show you exactly what's happening during analysis
               </p>
             </div>
           </div>
