@@ -40,9 +40,20 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
       }, 1000);
     },
     onError: (error: Error) => {
+      let errorMessage = error.message;
+      
+      // Provide more helpful error messages for common issues
+      if (error.message.includes('timeout')) {
+        errorMessage = 'Analysis timed out. Try uploading a smaller file or check if your local AI model is running.';
+      } else if (error.message.includes('524')) {
+        errorMessage = 'Server timeout. The analysis is taking longer than expected. Please try again with a smaller file.';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Server error during analysis. Please check your local AI model status and try again.';
+      }
+      
       toast({
         title: "Upload Failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     },

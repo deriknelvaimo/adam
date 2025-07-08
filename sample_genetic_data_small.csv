@@ -1,0 +1,4 @@
+gene,variant,genotype,chromosome,position
+APOE,rs429358,CT,19,45411941
+MTHFR,rs1801133,CT,1,11796321
+CYP1A2,rs762551,AC,15,74749576
