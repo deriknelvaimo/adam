@@ -1,39 +1,52 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Link, useLocation } from "wouter";
-import FileUpload from "@/components/file-upload";
-import AnalysisResults from "@/components/analysis-results";
-import InteractiveChat from "@/components/interactive-chat";
-import DataVisualization from "@/components/data-visualization";
-import QuickStats from "@/components/quick-stats";
-import ModelStatus from "@/components/model-status";
-import AnalysisProgress from "@/components/analysis-progress";
 import { User } from "lucide-react";
+import FileUpload from "@/components/file-upload";
+import AnalysisProgress from "@/components/analysis-progress";
+import AnalysisResults from "@/components/analysis-results";
+import QuickStats from "@/components/quick-stats";
+import InteractiveChat from "@/components/interactive-chat";
+import ModelStatus from "@/components/model-status";
+
+interface AnalysisSummary {
+  totalMarkers: number;
+  analyzedVariants: string;
+  riskFactors: number;
+  lastAnalysis: string;
+}
 
 export default function GeneticsDashboard() {
   const [currentAnalysisId, setCurrentAnalysisId] = useState<number | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [progressId, setProgressId] = useState<string | null>(null);
   const [location] = useLocation();
+
+  const { data: analysisOverview } = useQuery<AnalysisSummary>({
+    queryKey: ['/api/analysis-overview'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/analysis-overview');
+      return response.json();
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
 
   const { data: latestAnalysis } = useQuery({
     queryKey: ['/api/latest-analysis'],
-    enabled: !currentAnalysisId,
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/api/latest-analysis');
+      return response.json();
+    },
+    refetchInterval: 30000,
   });
 
-  // Use latest analysis if no specific analysis is selected
-  const analysisId = currentAnalysisId || (latestAnalysis as any)?.id || null;
-
-  const handleUploadComplete = (analysisId: number, progressId?: string) => {
+  const handleUploadComplete = (analysisId: number) => {
     setCurrentAnalysisId(analysisId);
-    setProgressId(progressId || null);
     setIsAnalyzing(false);
   };
 
-  const handleUploadStart = (progressId?: string) => {
+  const handleUploadStart = () => {
     setIsAnalyzing(true);
-    // Use provided progressId or generate one
-    setProgressId(progressId || Date.now().toString());
   };
 
   return (
@@ -78,47 +91,39 @@ export default function GeneticsDashboard() {
         </div>
       </header>
 
-      {/* Progress Banner - Show prominently when analyzing */}
-      {isAnalyzing && (
-        <div className="bg-blue-600 text-white py-3">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-center">
-              <div className="flex items-center space-x-3">
-                <div className="w-4 h-4 bg-white rounded-full animate-pulse"></div>
-                <span className="font-medium">Genetic Analysis in Progress</span>
-                <span className="text-blue-200">• Real-time updates enabled</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Genetic Analysis Dashboard
+          </h1>
+          <p className="text-gray-600">
+            Upload and analyze your genetic data with AI-powered insights
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column: Upload and Quick Stats */}
+          {/* Left Column - Upload and Progress */}
           <div className="lg:col-span-1 space-y-6">
-            <FileUpload onUploadComplete={handleUploadComplete} onUploadStart={handleUploadStart} />
+            <FileUpload 
+              onUploadComplete={handleUploadComplete}
+            />
             
-            {/* Show progress prominently when analyzing */}
-            {isAnalyzing && (
-              <div className="order-first">
-                <AnalysisProgress isAnalyzing={isAnalyzing} progressId={progressId || undefined} />
-              </div>
-            )}
+            <AnalysisProgress isVisible={isAnalyzing} />
             
             <QuickStats />
+            
             <ModelStatus />
           </div>
 
-          {/* Center Column: Analysis Results */}
+          {/* Right Column - Results and Analysis */}
           <div className="lg:col-span-2 space-y-6">
-            <AnalysisResults analysisId={analysisId} isAnalyzing={isAnalyzing} />
-            <InteractiveChat analysisId={analysisId} />
+            {currentAnalysisId && (
+              <AnalysisResults analysisId={currentAnalysisId} />
+            )}
+            
+            <InteractiveChat analysisId={currentAnalysisId || latestAnalysis?.id} />
           </div>
         </div>
-
-        {/* Data Visualization */}
-        <DataVisualization analysisId={analysisId} />
       </div>
 
       {/* Footer */}

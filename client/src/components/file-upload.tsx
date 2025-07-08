@@ -6,11 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 
 interface FileUploadProps {
-  onUploadComplete: (analysisId: number, progressId?: string) => void;
-  onUploadStart?: (progressId: string) => void;
+  onUploadComplete: (analysisId: number) => void;
 }
 
-export default function FileUpload({ onUploadComplete, onUploadStart }: FileUploadProps) {
+export default function FileUpload({ onUploadComplete }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -18,20 +17,20 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
   const queryClient = useQueryClient();
 
   const uploadMutation = useMutation({
-    mutationFn: async (formData: FormData) => {
-      const response = await apiRequest('POST', '/api/upload-genetic-data', formData);
-      const data = await response.json();
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
       
-      // Return data with the progress ID
-      return { ...data, progressId: formData.get('progressId') };
+      const response = await apiRequest('POST', '/api/upload-genetic-data', formData);
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
-        title: "Analysis Started",
-        description: `Processing ${selectedFile?.name} with ${data.summary?.totalMarkers || 'unknown'} genetic markers.`,
+        title: "Analysis Complete",
+        description: `Successfully analyzed ${selectedFile?.name} with ${data.summary?.totalMarkers || 'unknown'} genetic markers.`,
       });
       setSelectedFile(null);
-      onUploadComplete(data.analysisId, data.progressId);
+      onUploadComplete(data.analysisId);
       
       // Invalidate cache to refresh analysis overview after a brief delay
       setTimeout(() => {
@@ -109,17 +108,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
 
   const handleUpload = () => {
     if (selectedFile) {
-      // Generate progress ID and start progress tracking
-      const progressId = Date.now().toString();
-      onUploadStart?.(progressId);
-      
-      // Create form data with the same progressId
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('progressId', progressId);
-      
-      // Use the mutation with the form data
-      uploadMutation.mutate(formData as any);
+      uploadMutation.mutate(selectedFile);
     }
   };
 
@@ -164,7 +153,7 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
                 {uploadMutation.isPending ? (
                   <>
                     <i className="fas fa-spinner fa-spin mr-2"></i>
-                    Starting Analysis...
+                    Analyzing...
                   </>
                 ) : (
                   'Start Analysis'
@@ -197,9 +186,9 @@ export default function FileUpload({ onUploadComplete, onUploadStart }: FileUplo
           <div className="flex items-start">
             <i className="fas fa-info-circle text-blue-600 mt-0.5 mr-2"></i>
             <div>
-              <p className="text-sm font-medium text-blue-900">Analysis Progress</p>
+              <p className="text-sm font-medium text-blue-900">Supported Format</p>
               <p className="text-xs text-blue-700 mt-1">
-                Real-time progress tracking will show you exactly what's happening during analysis
+                Upload genetic markers in Section 14 format or standard VCF files
               </p>
             </div>
           </div>

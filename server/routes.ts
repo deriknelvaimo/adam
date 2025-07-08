@@ -3,7 +3,6 @@ import { createServer, Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
 import { analyzeGeneticMarker, generateRiskAssessments, answerGeneticQuestion } from "./genetic-ai";
-import { sendProgressUpdate, setupProgressSSE, cleanupProgressConnection } from "./progress-sse";
 import { db } from "./db";
 import { geneticAnalyses } from "../shared/schema";
 import { eq } from "drizzle-orm";
@@ -60,7 +59,6 @@ function parseGeneticFile(buffer: Buffer, filename: string): GeneticFileData {
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const server = createServer(app);
-  setupProgressSSE(app);
 
   // Upload and analyze genetic data
   app.post("/api/upload-genetic-data", upload.single('file'), async (req: Request, res: Response) => {
@@ -72,10 +70,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.log('File received:', req.file.originalname);
 
-      // Use provided progressId or generate one
-      const progressId = req.body.progressId || Date.now().toString();
-      console.log('Using progress ID:', progressId);
-      
       const fileData = parseGeneticFile(req.file.buffer, req.file.originalname || 'unknown');
       
       // Limit analysis to prevent timeouts - max 50 markers for initial testing
@@ -85,12 +79,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (fileData.markers.length > maxMarkers) {
         console.log(`Limiting analysis to ${maxMarkers} markers out of ${fileData.markers.length} total`);
       }
-      
-      sendProgressUpdate(progressId, {
-        type: 'analysis_started',
-        message: `File uploaded: ${req.file.originalname}. Analyzing ${markersToAnalyze.length} genetic markers (${fileData.markers.length} total found).`,
-        total: markersToAnalyze.length
-      });
 
       const analysis = await storage.createGeneticAnalysis({
         fileName: req.file.originalname || 'unknown',
@@ -112,15 +100,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           try {
             console.log(`Analyzing marker ${globalIndex + 1}/${markersToAnalyze.length}: ${marker.gene} (${marker.variant})`);
-            
-            sendProgressUpdate(progressId, {
-              type: 'marker_progress',
-              current: globalIndex + 1,
-              total: markersToAnalyze.length,
-              gene: marker.gene,
-              variant: marker.variant,
-              message: `Analyzing ${marker.gene} (${marker.variant})...`
-            });
 
             const result = await analyzeGeneticMarker({
               gene: marker.gene,
@@ -154,16 +133,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               subcategory: result.subcategory,
               explanation: result.explanation,
               recommendations: recommendations
-            });
-
-            sendProgressUpdate(progressId, {
-              type: 'marker_complete',
-              current: globalIndex + 1,
-              total: markersToAnalyze.length,
-              gene: marker.gene,
-              variant: marker.variant,
-              impact: result.impact,
-              message: `Completed analysis of ${marker.gene}: ${result.impact} impact`
             });
 
             return savedMarker;
@@ -232,22 +201,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.update(geneticAnalyses)
         .set({
           analyzedVariants: `${analyzedVariants}.00`,
-          riskFactors: riskFactors,
+          riskFactors: String(riskFactors),
           status: 'completed'
         })
         .where(eq(geneticAnalyses.id, analysis.id));
 
-      sendProgressUpdate(progressId, {
-        type: 'analysis_complete',
-        totalMarkers: totalMarkersAnalyzed,
-        message: `Analysis complete! Processed ${totalMarkersAnalyzed} genetic markers.`
-      });
-
-      cleanupProgressConnection(progressId);
-
       res.json({
         analysisId: analysis.id,
-        progressId: progressId,
         summary: {
           totalMarkers: totalMarkersAnalyzed,
           analyzedVariants: `${analyzedVariants}%`,
